@@ -13,6 +13,7 @@ import { startMission, missionLocked, remaining, fmtTime } from './missions.js';
 import { settings, updateSetting } from './settings.js';
 import { deleteSave } from './save.js';
 import { sfx, playMusic } from './audio.js';
+import { setRenderScale } from './render.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -144,7 +145,8 @@ export function initUI({ onNew, onContinue, hasSave }) {
 
 function fitStage() {
   scale = Math.min(window.innerWidth / VIEW_W, window.innerHeight / VIEW_H);
-  $('#game').style.transform = `scale(${scale})`;
+  $('#game').style.transform = `translate(-50%, -50%) scale(${scale})`;
+  setRenderScale(scale * (window.devicePixelRatio || 1));
 }
 
 // ---------- Per-frame ----------

@@ -25,6 +25,19 @@ export function initRender(canvas) {
   ctx = canvas.getContext('2d');
 }
 
+// Render the canvas at the on-screen pixel density so it stays sharp at any window size.
+// Capped at 2x the 960x540 design size to keep full-screen fills cheap.
+let res = 1;
+export function setRenderScale(s) {
+  res = Math.max(0.5, Math.min(2, s));
+  const c = ctx.canvas;
+  const w = Math.round(VIEW_W * res), h = Math.round(VIEW_H * res);
+  if (c.width !== w || c.height !== h) {
+    c.width = w;
+    c.height = h;
+  }
+}
+
 function rng(seed) {
   let a = seed >>> 0;
   return () => {
@@ -444,6 +457,7 @@ export function updateCamera(dt) {
 // ---------- Frame ----------
 
 export function render() {
+  ctx.setTransform(res, 0, 0, res, 0, 0);
   if (!G.started || !G.map) return renderTitle();
   const map = G.map, th = map.theme, cam = G.cam;
   drawSky(th, map);
