@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GhostX Solo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="stage">
+    <div id="game">
+      <canvas id="view" width="960" height="540"></canvas>
+      <div id="ui">
+        <div id="mini"><div id="mini-name"></div><canvas id="mini-map" width="190" height="80"></canvas></div>
+        <div id="bossbar" class="hidden"><div class="bb-name"></div><div class="bb-track"><div class="bb-fill"></div></div></div>
+        <div id="mtrack" class="hidden"></div>
+        <div id="banner" class="hidden"><div class="b-title"></div><div class="b-sub"></div></div>
+        <div id="log"></div>
+        <div id="combo" class="hidden">
+          <div class="c-num">0</div><div class="c-hits">HITS</div>
+          <div class="c-rank">D</div><div class="c-bonus"></div>
+          <div class="c-track"><div class="c-timer"></div></div>
+        </div>
+
+        <div id="hud">
+          <div class="hud-id">
+            <div class="lv"><small>LV</small><b id="hud-lv">1</b></div>
+            <div class="who"><div id="hud-name"></div><div id="hud-gold"></div></div>
+          </div>
+          <div class="bars">
+            <div class="bar hp"><div class="fill"></div><label>HP</label><span></span></div>
+            <div class="bar mp"><div class="fill"></div><label>EN</label><span></span></div>
+          </div>
+          <div class="bots" id="hud-bots"></div>
+          <div class="slots" id="hud-slots"></div>
+          <div class="menu" id="hud-menu">
+            <button data-win="bots" title="Nanobots (N)">N<small>Bots</small></button>
+            <button data-win="inv" title="Inventory (I)">I<small>Bag</small></button>
+            <button data-win="char" title="Character (C)">C<small>Char</small></button>
+            <button data-win="quests" title="Story (J)">J<small>Story</small></button>
+            <button data-win="settings" title="Settings (O)">O<small>Setup</small></button>
+          </div>
+          <div class="bar exp"><div class="fill"></div><span></span></div>
+        </div>
+
+        <div id="windows"></div>
+        <div id="dialog" class="hidden"></div>
+        <div id="tooltip" class="hidden"></div>
+        <div id="pause" class="hidden"><div>PAUSED</div><small>Press P to resume</small></div>
+        <div id="ending" class="hidden"></div>
+
+        <div id="title">
+          <div class="t-logo">GHOST<span>X</span></div>
+          <div class="t-sub">SOLO · NANOBOT HUNTER</div>
+          <div class="t-card">
+            <label for="title-name">Hunter name</label>
+            <input id="title-name" maxlength="12" placeholder="Hunter" autocomplete="off">
+            <button id="btn-new" class="primary">New Game</button>
+            <button id="btn-continue" disabled>Continue</button>
+          </div>
+          <div class="t-foot">Arrows move · X jump · Z attack · 1 2 3 swap nanobot · A S D skills · F sync</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
