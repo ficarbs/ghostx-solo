@@ -35,7 +35,7 @@ export function initInput() {
 }
 
 export function isDown(action) {
-  if (padDown.has(action)) return true;
+  if (padDown.has(action) || virtualDown.has(action)) return true;
   for (const code of downCodes) if (KEYMAP[code] === action) return true;
   return false;
 }
@@ -65,6 +65,15 @@ export function pollGamepad() {
   }
   for (const a of now) if (!padDown.has(a)) pressed.add(a);
   padDown = now;
+}
+
+// ---------- Virtual input (on-screen touch controls) ----------
+const virtualDown = new Set();
+
+export function setVirtual(action, down) {
+  if (down && !virtualDown.has(action)) pressed.add(action);
+  if (down) virtualDown.add(action);
+  else virtualDown.delete(action);
 }
 
 export function wasPressed(action) {

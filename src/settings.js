@@ -2,7 +2,8 @@
 import { setVolumes } from './audio.js';
 
 const KEY = 'ghostx-solo-settings';
-export const settings = { master: 0.7, music: 0.5, sfx: 0.8, shake: true };
+// touch: 'auto' shows on-screen controls on touch devices; 'on' / 'off' force it.
+export const settings = { master: 0.7, music: 0.5, sfx: 0.8, shake: true, touch: 'auto' };
 
 export function loadSettings() {
   try {

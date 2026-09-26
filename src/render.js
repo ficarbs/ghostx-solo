@@ -26,7 +26,7 @@ export function initRender(canvas) {
 }
 
 // Render the canvas at the on-screen pixel density so it stays sharp at any window size.
-// Capped at 2x the 960x540 design size to keep full-screen fills cheap.
+// Capped at 2x the design size to keep full-screen fills cheap.
 let res = 1;
 export function setRenderScale(s) {
   res = Math.max(0.5, Math.min(2, s));
@@ -76,8 +76,14 @@ export function buildMapArt(map) {
   map.stars = [];
   const r0 = rng(seed);
   if (!th.underground) for (let i = 0; i < 80; i++) map.stars.push([r0() * VIEW_W, r0() * VIEW_H * 0.5, r0() * 1.4 + 0.3, r0() * 6]);
-  map.layers = [buildFar(map, th, 0.12, rng(seed + 1)), buildMid(map, th, 0.32, rng(seed + 2))];
+  buildLayers(map);
   map.art = buildTerrain(map, th, rng(seed + 3));
+}
+
+// Parallax layers depend on the view width, so they're rebuilt when the window's aspect ratio changes.
+export function buildLayers(map) {
+  const seed = [...map.id].reduce((a, c) => a * 31 + c.charCodeAt(0), 7);
+  map.layers = [buildFar(map, map.theme, 0.12, rng(seed + 1)), buildMid(map, map.theme, 0.32, rng(seed + 2))];
 }
 
 function layerCanvas(map, f) {
@@ -1401,7 +1407,7 @@ const MOB_DRAW = {
 
 // ---------- Title backdrop ----------
 
-const titleLights = Array.from({ length: 70 }, () => [Math.random() * VIEW_W, 260 + Math.random() * 220, Math.random()]);
+const titleLights = Array.from({ length: 90 }, () => [Math.random(), 260 + Math.random() * 220, Math.random()]);
 
 function renderTitle() {
   const t = performance.now() / 1000;
@@ -1434,7 +1440,7 @@ function renderTitle() {
   }
   for (const [lx, ly, ph] of titleLights) {
     ctx.fillStyle = Math.sin(t * 2 + ph * 10) > -0.3 ? 'rgba(255,220,140,0.6)' : 'rgba(120,200,255,0.4)';
-    ctx.fillRect(lx, ly, 3, 4);
+    ctx.fillRect(lx * VIEW_W, ly, 3, 4);
   }
   vignette();
 }

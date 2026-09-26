@@ -1,6 +1,6 @@
 // Player: stats, movement physics, ladders, nanobot-driven combat, combo meter, leveling, death.
 import { G } from './state.js';
-import { ITEMS, MAX_LV, GRAVITY, JUMP_V, RUN_SPEED, CLIMB_SPEED, INV_SIZE, BOT_BASIC, RANKS, COMBO_TIME, BOT_TYPES, expNeed } from './data.js';
+import { VIEW_W, ITEMS, MAX_LV, GRAVITY, JUMP_V, RUN_SPEED, CLIMB_SPEED, INV_SIZE, BOT_BASIC, RANKS, COMBO_TIME, BOT_TYPES, expNeed } from './data.js';
 import * as input from './input.js';
 import { addText, burst, shake, log, effect, banner, rand, clamp } from './fx.js';
 import { damageMob } from './mobs.js';
@@ -344,7 +344,7 @@ const liveMobs = () => G.mobs.filter((m) => m.alive);
 
 function onScreen(m) {
   const c = G.cam;
-  return m.x > c.x - 20 && m.x < c.x + 980 && m.y > c.y - 20 && m.y - m.h < c.y + 480;
+  return m.x > c.x - 20 && m.x < c.x + VIEW_W + 20 && m.y > c.y - 20 && m.y - m.h < c.y + 480;
 }
 
 // ---------- Combo meter ----------

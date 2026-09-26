@@ -1,6 +1,9 @@
 // Static game data: tuning constants, items, nanobots, monsters, maps, NPCs, quests.
 
-export const VIEW_W = 960;
+// View width adapts to the window's aspect ratio (960 at 16:9, up to 1280 on wide phones); height is fixed.
+// Exported as a live binding so every module sees the current value.
+export let VIEW_W = 960;
+export const setViewWidth = (w) => (VIEW_W = w);
 export const VIEW_H = 540;
 export const GRAVITY = 2000;
 export const JUMP_V = 700;

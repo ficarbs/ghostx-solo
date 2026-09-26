@@ -1,6 +1,6 @@
 // DOM overlay UI: HUD, combo meter, minimap, chat log, windows (inventory, character, nanobots, quests, shop, help), dialogs.
 import { G } from './state.js';
-import { ITEMS, NPCS, QUESTS, CURRENCY, VIEW_W, VIEW_H, BOTS, BOT_TYPES, BOT_TYPE_ORDER, BOT_ORDER, BOT_SKILLS, BOT_BASIC, BOT_CAP, BOT_MAX_LV, RARITY, RANKS, COMBO_TIME, expNeed, botExpNeed, sellPrice } from './data.js';
+import { setViewWidth, ITEMS, NPCS, QUESTS, CURRENCY, VIEW_W, VIEW_H, BOTS, BOT_TYPES, BOT_TYPE_ORDER, BOT_ORDER, BOT_SKILLS, BOT_BASIC, BOT_CAP, BOT_MAX_LV, RARITY, RANKS, COMBO_TIME, expNeed, botExpNeed, sellPrice } from './data.js';
 import * as input from './input.js';
 import { itemIcon, skillIcon, botIcon } from './icons.js';
 import { useSlot, unequip, addItem, canAdd, countItem, quickPotion } from './items.js';
@@ -13,7 +13,8 @@ import { startMission, missionLocked, remaining, fmtTime } from './missions.js';
 import { settings, updateSetting } from './settings.js';
 import { deleteSave } from './save.js';
 import { sfx, playMusic } from './audio.js';
-import { setRenderScale } from './render.js';
+import { setRenderScale, buildLayers } from './render.js';
+import { initTouch, refreshTouchSkills, applyTouchMode, touchEnabled } from './touch.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -80,6 +81,7 @@ export function initUI({ onNew, onContinue, hasSave }) {
   };
 
   buildWindows();
+  initTouch(els.ui, () => scale);
 
   $('#hud-menu').addEventListener('click', (e) => {
     const b = e.target.closest('[data-win]');
@@ -144,6 +146,12 @@ export function initUI({ onNew, onContinue, hasSave }) {
 }
 
 function fitStage() {
+  const w = Math.round(Math.max(960, Math.min(1280, (window.innerWidth / window.innerHeight) * VIEW_H)));
+  if (w !== VIEW_W) {
+    setViewWidth(w);
+    if (G.map) buildLayers(G.map);
+  }
+  $('#game').style.width = VIEW_W + 'px';
   scale = Math.min(window.innerWidth / VIEW_W, window.innerHeight / VIEW_H);
   $('#game').style.transform = `translate(-50%, -50%) scale(${scale})`;
   setRenderScale(scale * (window.devicePixelRatio || 1));
@@ -215,6 +223,7 @@ function buildSlots() {
   const bot = activeBot(p);
   const color = bot ? botColor(bot) : '#5ad8ff';
   const skills = botSkills(bot);
+  refreshTouchSkills(skills, color);
   els.slots.innerHTML = skills.map((sk) => `
     <div class="slot" data-kind="skill" data-key="${sk.id}" data-skill="${sk.id}">
       <img src="${skillIcon(sk.id, color).url}" alt=""><div class="cd"></div><b>${sk.key}</b><i></i>
@@ -600,6 +609,9 @@ function onWinClick(id, e) {
     startMission(d.launch);
   } else if (d.open) {
     showWin(d.open);
+  } else if (d.fullscreen) {
+    if (document.fullscreenElement) document.exitFullscreen?.();
+    else document.documentElement.requestFullscreen?.().catch(() => fxLog('Fullscreen is not available on this device.', 'warn'));
   } else if (d.reset) {
     if (confirm('Delete your save and return to the title screen? This cannot be undone.')) {
       G.started = false;
@@ -614,11 +626,34 @@ function onWinClick(id, e) {
     p.inv.forEach((s, i) => s && ITEMS[s.id].type === 'etc' && sellSlot(i, true, true));
   } else if (d.slot !== undefined && e.shiftKey && openWins.has('shop')) {
     sellSlot(+d.slot, true);
+  } else if ((d.slot !== undefined || d.unequip) && touchEnabled()) {
+    touchTap(t, e);
   }
 }
 
+// Touch has no hover or double-click: the first tap shows the tooltip, a second tap uses/equips.
+let tapped = null;
+function touchTap(t, e) {
+  const k = t.dataset.slot ?? 'eq:' + t.dataset.unequip;
+  if (tapped === k) {
+    tapped = null;
+    onWinDbl(null, e);
+    return;
+  }
+  tapped = k;
+  const id = t.dataset.item;
+  if (!id) return;
+  els.tip.innerHTML = itemTip(id) + '<div class="dim">Tap again to use / equip</div>';
+  els.tip.classList.remove('hidden');
+  const r = els.game.getBoundingClientRect(), b = t.getBoundingClientRect();
+  let x = (b.right - r.left) / scale + 6, y = (b.top - r.top) / scale;
+  if (x + 214 > VIEW_W) x = (b.left - r.left) / scale - 220;
+  els.tip.style.left = x + 'px';
+  els.tip.style.top = Math.min(y, VIEW_H - els.tip.offsetHeight - 4) + 'px';
+}
+
 function onWinDbl(id, e) {
-  e.preventDefault();
+  e.preventDefault?.();
   const t = e.target.closest('[data-slot], [data-unequip]');
   if (!t) return;
   if (t.dataset.slot !== undefined) useSlot(+t.dataset.slot);
@@ -835,16 +870,18 @@ function showResult(r) {
 function settingsHTML() {
   const slider = (k, label) => `<div class="set"><label>${label}</label><input type="range" min="0" max="1" step="0.05" value="${settings[k]}" data-set="${k}"><span>${Math.round(settings[k] * 100)}%</span></div>`;
   return `${slider('master', 'Master')}${slider('music', 'Music')}${slider('sfx', 'Effects')}
+    ${touchSelectHTML()}
     <label class="set check"><input type="checkbox" data-set="shake" ${settings.shake ? 'checked' : ''}> Screen shake</label>
-    <div class="set-btns"><button data-open="help">Controls</button><button data-reset="1" class="danger">Delete save</button></div>
+    <div class="set-btns"><button data-open="help">Controls</button><button data-fullscreen="1">Fullscreen</button><button data-reset="1" class="danger">Delete save</button></div>
     <div class="hint">P pauses. Gamepads are supported (A jump · X attack · B/Y/RB skills · RT sync · LB swap).</div>`;
 }
 
 function onSettingInput(e) {
   const k = e.target.dataset.set;
   if (!k) return;
-  const v = e.target.type === 'checkbox' ? e.target.checked : +e.target.value;
+  const v = e.target.type === 'checkbox' ? e.target.checked : e.target.tagName === 'SELECT' ? e.target.value : +e.target.value;
   updateSetting(k, v);
+  if (k === 'touch') applyTouchMode();
   const span = e.target.parentElement.querySelector('span');
   if (span) span.textContent = `${Math.round(v * 100)}%`;
   if (e.type === 'change') e.target.blur();
@@ -884,4 +921,10 @@ function showEnding() {
     playMusic(G.map.def.music || G.map.def.theme);
     G.hooks.save?.();
   });
+}
+
+function touchSelectHTML() {
+  const opts = { auto: 'Auto-detect', on: 'Always show', off: 'Hide' };
+  return `<div class="set"><label>Touch</label><select data-set="touch">${Object.entries(opts)
+    .map(([v, l]) => `<option value="${v}" ${settings.touch === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>`;
 }
