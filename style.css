@@ -335,6 +335,9 @@ body.touch #combo { top: 60px; right: 64px; }
 /* Windows and dialogs get bigger on touch so text and targets stay readable once the stage is scaled down. */
 body.touch .menu button { width: 44px; height: 46px; font-size: 15px; }
 body.touch .bslot { width: 44px; height: 44px; }
+/* On phones the bottom few pixels can sit under the home-bar area, so the EXP bar rides the HUD's top edge. */
+body.touch #hud { grid-template-rows: 1fr; padding-bottom: 12px; }
+body.touch .bar.exp { position: absolute; left: 0; right: 0; top: -9px; margin: 0; border-width: 1px 0 0; }
 body.touch .win-head .x { padding: 2px 10px; font-size: 16px; }
 
 #rotate { display: none; }
