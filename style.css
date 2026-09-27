@@ -20,7 +20,7 @@
 html, body { margin: 0; height: 100%; background: #07050b; overflow: hidden; }
 body { font-family: var(--ui-font); color: var(--text); user-select: none; }
 
-#stage { position: fixed; inset: 0; overflow: hidden; }
+#stage { position: fixed; inset: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); overflow: hidden; }
 /* Fixed 960x540 design space, centered and uniformly scaled to fit the window (see fitStage in ui.js). */
 #game { position: absolute; left: 50%; top: 50%; width: 960px; height: 540px; transform-origin: center; }
 #view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; image-rendering: auto; }
@@ -28,7 +28,7 @@ body { font-family: var(--ui-font); color: var(--text); user-select: none; }
 #ui > * { pointer-events: auto; }
 #log, #banner { pointer-events: none !important; }
 .hidden { display: none !important; }
-#ui:not(.playing) > :not(#title) { display: none !important; }
+#ui:not(.playing) > :not(#title):not(#confirm) { display: none !important; }
 .dim { color: var(--dim); }
 .bad { color: var(--bad); }
 .gold { color: var(--gold); }
@@ -322,3 +322,9 @@ body.touch .win-head .x { padding: 2px 10px; font-size: 16px; }
 }
 @keyframes spin { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(90deg); } }
 .win-body, .shop-list, .bot-list { touch-action: pan-y; }
+
+/* ---------- Confirm ---------- */
+#confirm { position: absolute; inset: 0; z-index: 300; background: rgba(2, 4, 10, 0.6); display: flex; align-items: center; justify-content: center; }
+#confirm .c-card { width: 380px; background: var(--panel); border: 1px solid var(--gold); border-radius: 8px; padding: 14px 16px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7); font-size: 13px; line-height: 1.5; }
+#confirm p { margin: 0; }
+body.touch #confirm .c-card { zoom: 1.25; }

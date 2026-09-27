@@ -78,3 +78,13 @@ await simFight({ lv: 11, sp: 'razor', botLv: 12, gear: { head: 'combat_helm', bo
 ```
 
 The autopilot dodges perfectly, so humans should expect fights to take roughly 2× as long. Current results: the story boss falls in about 30–60s at Lv 11, and Sovereign EX in about 60–70s at Lv 20–30.
+
+## Publishing
+
+The shareable build lives at https://claude.ai/artifact/4TWwpwDBVTZrvQCMDLWqT4 (share it from that page's Share menu).
+
+```bash
+node tools/build-artifact.js
+```
+
+This writes `dist/index.html`, which is the page without its document wrapper, because the Artifact host supplies its own. It also prints the `files` map (`style.css` + `src/*.js`) to publish alongside it. Saves live in each player's own browser (`localStorage`). The build declares no runtime capabilities on purpose: declaring `db`, which a shared leaderboard would need, makes an artifact organization-internal and blocks public links.

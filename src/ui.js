@@ -103,10 +103,13 @@ export function initUI({ onNew, onContinue, hasSave }) {
   const nameInput = $('#title-name');
   $('#btn-new').addEventListener('click', () => {
     const name = nameInput.value.trim().slice(0, 12) || 'Hunter';
-    if (hasSave() && !confirm('Start a new game? Your current save will be overwritten.')) return;
-    els.title.classList.add('hidden');
-    onNew(name);
-    showWin('help');
+    const begin = () => {
+      els.title.classList.add('hidden');
+      onNew(name);
+      showWin('help');
+    };
+    if (hasSave()) askConfirm('Start a new game? Your current save will be overwritten.', 'Start over', begin);
+    else begin();
   });
   const cont = $('#btn-continue');
   if (hasSave()) {
@@ -146,13 +149,16 @@ export function initUI({ onNew, onContinue, hasSave }) {
 }
 
 function fitStage() {
-  const w = Math.round(Math.max(960, Math.min(1280, (window.innerWidth / window.innerHeight) * VIEW_H)));
+  // Measure the stage, not the window: the stage is inset by the phone's safe areas.
+  const stage = $('#stage');
+  const sw = stage.clientWidth || window.innerWidth, sh = stage.clientHeight || window.innerHeight;
+  const w = Math.round(Math.max(960, Math.min(1280, (sw / sh) * VIEW_H)));
   if (w !== VIEW_W) {
     setViewWidth(w);
     if (G.map) buildLayers(G.map);
   }
   $('#game').style.width = VIEW_W + 'px';
-  scale = Math.min(window.innerWidth / VIEW_W, window.innerHeight / VIEW_H);
+  scale = Math.min(sw / VIEW_W, sh / VIEW_H);
   $('#game').style.transform = `translate(-50%, -50%) scale(${scale})`;
   setRenderScale(scale * (window.devicePixelRatio || 1));
 }
@@ -603,7 +609,7 @@ function onWinClick(id, e) {
   } else if (d.fuse) {
     fuse(+d.fuse, +d.with);
   } else if (d.release) {
-    if (confirm('Scrap this nanobot for credits? This cannot be undone.')) release(+d.release);
+    askConfirm('Scrap this nanobot for credits? This cannot be undone.', 'Scrap', () => release(+d.release));
   } else if (d.launch) {
     closeWin('missions');
     startMission(d.launch);
@@ -613,11 +619,11 @@ function onWinClick(id, e) {
     if (document.fullscreenElement) document.exitFullscreen?.();
     else document.documentElement.requestFullscreen?.().catch(() => fxLog('Fullscreen is not available on this device.', 'warn'));
   } else if (d.reset) {
-    if (confirm('Delete your save and return to the title screen? This cannot be undone.')) {
+    askConfirm('Delete your save and return to the title screen? This cannot be undone.', 'Delete save', () => {
       G.started = false;
       deleteSave();
       location.reload();
-    }
+    });
   } else if (d.buy) {
     buy(d.buy, +d.n);
   } else if (d.sell !== undefined) {
@@ -927,4 +933,19 @@ function touchSelectHTML() {
   const opts = { auto: 'Auto-detect', on: 'Always show', off: 'Hide' };
   return `<div class="set"><label>Touch</label><select data-set="touch">${Object.entries(opts)
     .map(([v, l]) => `<option value="${v}" ${settings.touch === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>`;
+}
+
+// In-page confirmation. Native confirm() is unavailable in some hosts (it returns false without asking).
+function askConfirm(text, yesLabel, onYes) {
+  const box = $('#confirm');
+  box.querySelector('p').textContent = text;
+  const yes = box.querySelector('.c-yes');
+  yes.textContent = yesLabel;
+  const close = () => box.classList.add('hidden');
+  yes.onclick = () => {
+    close();
+    onYes();
+  };
+  box.querySelector('.c-no').onclick = close;
+  box.classList.remove('hidden');
 }
