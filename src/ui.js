@@ -128,7 +128,14 @@ export function initUI({ onNew, onContinue, hasSave }) {
   });
   els.bots.addEventListener('click', (e) => {
     const s = e.target.closest('[data-swap]');
-    if (s) swapTo(+s.dataset.swap);
+    if (s) {
+      swapTo(+s.dataset.swap);
+      if (touchEnabled()) {
+        els.tip.innerHTML = botTip(+s.dataset.bot);
+        els.tip.classList.remove('hidden');
+        placeTooltip(s);
+      }
+    }
   });
 
   // Title screen
@@ -158,20 +165,13 @@ export function initUI({ onNew, onContinue, hasSave }) {
     els.tip.innerHTML = t.dataset.item ? itemTip(t.dataset.item) : t.dataset.skill ? skillTip(t.dataset.skill) : botTip(+t.dataset.bot);
     if (!els.tip.innerHTML) return;
     els.tip.classList.remove('hidden');
+    placeTooltip(t);
   });
   els.ui.addEventListener('mouseout', (e) => {
-    if (e.target.closest('[data-item],[data-skill],[data-bot]')) els.tip.classList.add('hidden');
+    if (!touchEnabled() && e.target.closest('[data-item],[data-skill],[data-bot]')) els.tip.classList.add('hidden');
   });
-  els.ui.addEventListener('mousemove', (e) => {
-    if (els.tip.classList.contains('hidden')) return;
-    const r = els.game.getBoundingClientRect();
-    let x = (e.clientX - r.left) / scale + 14;
-    let y = (e.clientY - r.top) / scale + 14;
-    const tw = els.tip.offsetWidth, th = els.tip.offsetHeight;
-    if (x + tw > VIEW_W - 4) x -= tw + 28;
-    if (y + th > VIEW_H - 4) y = VIEW_H - th - 4;
-    els.tip.style.left = x + 'px';
-    els.tip.style.top = y + 'px';
+  els.ui.addEventListener('click', (e) => {
+    if (touchEnabled() && !e.target.closest('[data-item],[data-skill],[data-bot]')) els.tip.classList.add('hidden');
   });
   els.ui.addEventListener('contextmenu', (e) => e.preventDefault());
 }
@@ -434,6 +434,36 @@ function makeDraggable(el, handle) {
 
 // Keep a window fully inside the play area above the HUD, at its current UI zoom.
 const HUD_TOP = VIEW_H - 84;
+function placeTooltip(target) {
+  const game = els.game.getBoundingClientRect();
+  const bounds = (el) => {
+    const r = el.getBoundingClientRect();
+    return { left: (r.left - game.left) / scale, top: (r.top - game.top) / scale,
+      right: (r.right - game.left) / scale, bottom: (r.bottom - game.top) / scale };
+  };
+  const t = bounds(target);
+  const w = els.tip.offsetWidth, h = els.tip.offsetHeight;
+  const limitX = (x) => Math.max(4, Math.min(VIEW_W - w - 4, x));
+  const limitY = (y) => Math.max(4, Math.min(HUD_TOP - h - 4, y));
+  const win = target.closest('.win');
+  const xs = [t.right + 8, t.left - w - 8];
+  if (win) {
+    const r = bounds(win);
+    xs.unshift(r.left - w - 8, r.right + 8);
+  }
+  const windows = [...document.querySelectorAll('.win:not(.hidden)')].map(bounds);
+  let best = null;
+  for (const x0 of xs) for (const y0 of [t.top, t.bottom - h, t.top - h - 8]) {
+    const x = limitX(x0), y = limitY(y0);
+    const overlap = windows.reduce((sum, r) => sum + Math.max(0, Math.min(x + w, r.right) - Math.max(x, r.left)) *
+      Math.max(0, Math.min(y + h, r.bottom) - Math.max(y, r.top)), 0);
+    const score = overlap * 100 + Math.abs(x - x0) + Math.abs(y - y0);
+    if (!best || score < best.score) best = { x, y, score };
+  }
+  els.tip.style.left = best.x + 'px';
+  els.tip.style.top = best.y + 'px';
+}
+
 function keepOnScreen(el) {
   const z = parseFloat(getComputedStyle(document.body).getPropertyValue('--wz')) || 1;
   const w = el.offsetWidth * z, h = el.offsetHeight * z;
@@ -742,11 +772,7 @@ function touchTap(t, e) {
   if (!id) return;
   els.tip.innerHTML = itemTip(id) + '<div class="dim">Tap again to use / equip</div>';
   els.tip.classList.remove('hidden');
-  const r = els.game.getBoundingClientRect(), b = t.getBoundingClientRect();
-  let x = (b.right - r.left) / scale + 6, y = (b.top - r.top) / scale;
-  if (x + 214 > VIEW_W) x = (b.left - r.left) / scale - 220;
-  els.tip.style.left = x + 'px';
-  els.tip.style.top = Math.min(y, VIEW_H - els.tip.offsetHeight - 4) + 'px';
+  placeTooltip(t);
 }
 
 function onWinDbl(id, e) {
