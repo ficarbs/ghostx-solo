@@ -212,7 +212,18 @@ kbd { display: inline-block; min-width: 18px; text-align: center; background: #0
 .t-card input { font: 14px var(--ui-font); color: var(--text); background: #000; border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; outline: none; user-select: text; }
 .t-card input:focus { border-color: var(--gold); }
 .t-card button { padding: 7px; font-size: 13px; }
-.t-foot { margin-top: 18px; color: var(--dim); font-size: 11px; text-shadow: 0 1px 2px #000; }
+/* Title controls panel: keyboard chips on desktop, thumb guide on touch devices. */
+.t-controls { margin-top: 16px; width: 520px; background: rgba(8, 12, 24, 0.82); border: 2px solid var(--line); box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.55); padding: 10px 14px 8px; }
+.tc-head { font: 9px var(--title-font); color: var(--gold); letter-spacing: 2px; margin-bottom: 8px; }
+.tc-keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 10px; font-size: 13px; }
+.tc-keys span { display: flex; align-items: center; gap: 3px; white-space: nowrap; }
+.tc-keys kbd { font-size: 11px; padding: 1px 5px; }
+.tc-touch { display: none; flex-direction: column; gap: 5px; font-size: 14px; }
+.tc-touch b { color: var(--gold); font-weight: 600; }
+body.touch .tc-keys { display: none; }
+body.touch .tc-touch { display: flex; }
+.tc-foot { margin-top: 8px; color: var(--dim); font-size: 11px; }
+body.touch .tc-foot { display: none; }
 
 /* ---------- Combo meter ---------- */
 #combo { position: absolute; right: 16px; top: 120px; width: 150px; text-align: right; pointer-events: none !important; font-family: var(--title-font); }
@@ -363,7 +374,7 @@ body { font-size: 13px; }
 .d-name { font-size: 11px; font-weight: 400; margin-bottom: 8px; }
 .t-logo { font-size: 58px; font-weight: 400; letter-spacing: 4px; text-shadow: 0 0 24px rgba(90, 224, 255, 0.8), 5px 5px 0 #04202e; }
 .t-logo span { text-shadow: 0 0 24px rgba(255, 58, 138, 0.9), 5px 5px 0 #3a0518; }
-.t-sub { font-size: 10px; letter-spacing: 3px; margin: 14px 0 26px; }
+.t-sub { font-size: 10px; letter-spacing: 3px; margin: 12px 0 18px; }
 #combo { width: 180px; }
 .c-num { font-size: 34px; font-weight: 400; text-shadow: 0 0 10px rgba(90, 224, 255, 0.8), 3px 3px 0 #000; }
 .c-hits { font-size: 9px; letter-spacing: 3px; margin-top: 4px; }
