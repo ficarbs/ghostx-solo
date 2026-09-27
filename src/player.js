@@ -269,18 +269,20 @@ function move(p, dt, L, R, U, D, jumpP) {
     }
   }
 
-  if (jumpP && p.onGround) {
-    if (D && p.plat && !p.plat.floor) {
-      p.dropT = 0.3;
-      p.dropPlat = p.plat;
-      p.onGround = false;
-      p.y += 2;
-    } else {
-      p.vy = -JUMP_V * (p.mounted ? 1.12 : 1);
-      p.onGround = false;
-      sfx('jump');
-      burst(p.x, p.y, 'rgba(220,220,230,0.7)', 5, 80, { grav: 0, angle: Math.PI, spread: 1.2 });
-    }
+  // Touch: holding the joystick down on a platform drops through it (keyboard uses down + jump).
+  p.downT = D && input.heldVirtual('down') ? (p.downT || 0) + dt : 0;
+  const canDrop = p.onGround && p.plat && !p.plat.floor;
+  if (canDrop && ((jumpP && D) || (p.downT > 0.12 && !attacking))) {
+    p.downT = 0;
+    p.dropT = 0.3;
+    p.dropPlat = p.plat;
+    p.onGround = false;
+    p.y += 2;
+  } else if (jumpP && p.onGround) {
+    p.vy = -JUMP_V * (p.mounted ? 1.12 : 1);
+    p.onGround = false;
+    sfx('jump');
+    burst(p.x, p.y, 'rgba(220,220,230,0.7)', 5, 80, { grav: 0, angle: Math.PI, spread: 1.2 });
   }
   physics(p, dt);
 }

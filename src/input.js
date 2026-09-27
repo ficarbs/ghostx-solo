@@ -71,6 +71,7 @@ export function pollGamepad() {
 
 // ---------- Virtual input (on-screen touch controls) ----------
 const virtualDown = new Set();
+export const heldVirtual = (action) => virtualDown.has(action);
 
 export function setVirtual(action, down) {
   if (down && !virtualDown.has(action)) pressed.add(action);

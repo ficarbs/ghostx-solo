@@ -20,7 +20,7 @@ const BUTTONS = [
 ];
 
 let root, stick, knob, getScale;
-let stickId = null, origin = null;
+let stickId = null, origin = null, stickShift = { x: 0, y: 0 };
 const DEAD_X = 16, DEAD_Y = 26, RADIUS = 60;
 
 export const isTouchDevice = () => (window.matchMedia && matchMedia('(pointer: coarse)').matches) || navigator.maxTouchPoints > 0;
@@ -71,8 +71,13 @@ export function initTouch(ui, scaleFn) {
     const r = zone.getBoundingClientRect();
     const s = getScale();
     origin = { x: e.clientX, y: e.clientY };
-    stick.style.left = (e.clientX - r.left) / s + 'px';
-    stick.style.top = (e.clientY - r.top) / s + 'px';
+    // Keep the ring fully on screen; the knob is still measured from where the finger landed.
+    const fx = (e.clientX - r.left) / s, fy = (e.clientY - r.top) / s;
+    const cx = Math.max(RADIUS + 4, Math.min(zone.offsetWidth - RADIUS - 4, fx));
+    const cy = Math.max(RADIUS + 4, Math.min(zone.offsetHeight - RADIUS - 4, fy));
+    stickShift = { x: fx - cx, y: fy - cy };
+    stick.style.left = cx + 'px';
+    stick.style.top = cy + 'px';
     stick.classList.add('active');
     moveStick(e);
   });
@@ -80,16 +85,39 @@ export function initTouch(ui, scaleFn) {
     if (e.pointerId === stickId) moveStick(e);
   });
   const release = (e) => {
-    if (e.pointerId !== stickId) return;
-    stickId = null;
-    stick.classList.remove('active');
-    knob.style.transform = '';
-    for (const a of ['left', 'right', 'up', 'down']) setVirtual(a, false);
+    if (e.pointerId === stickId) releaseStick();
   };
   zone.addEventListener('pointerup', release);
   zone.addEventListener('pointercancel', release);
   zone.addEventListener('lostpointercapture', release);
+  // The lift can land outside the zone, or iOS can swallow it (screen edges, overlays, map
+  // changes), which would leave a direction held. Listen page-wide as a backstop.
+  window.addEventListener('pointerup', release);
+  window.addEventListener('pointercancel', release);
+  const allUp = (e) => {
+    if (e.touches.length === 0) releaseAll();
+  };
+  window.addEventListener('touchend', allUp);
+  window.addEventListener('touchcancel', allUp);
+  window.addEventListener('blur', releaseAll);
+  document.addEventListener('visibilitychange', () => document.hidden && releaseAll());
   applyTouchMode();
+}
+
+function releaseStick() {
+  stickId = null;
+  stick.classList.remove('active');
+  knob.style.transform = '';
+  for (const a of ['left', 'right', 'up', 'down']) setVirtual(a, false);
+}
+
+// No finger on the screen: nothing may stay held.
+function releaseAll() {
+  if (!root) return;
+  releaseStick();
+  for (const btn of root.querySelectorAll('.tb')) btn.classList.remove('on');
+  for (const b of BUTTONS) setVirtual(b.a, false);
+  setVirtual('interact', false);
 }
 
 // Capture keeps a drag tracked when the finger slides off the control. It can throw for
@@ -106,15 +134,18 @@ function moveStick(e) {
   const s = getScale();
   let dx = (e.clientX - origin.x) / s, dy = (e.clientY - origin.y) / s;
   const len = Math.hypot(dx, dy);
+  const kx = dx + stickShift.x, ky = dy + stickShift.y, klen = Math.hypot(kx, ky);
+  const k = klen > RADIUS ? RADIUS / klen : 1;
+  knob.style.transform = `translate(${kx * k}px, ${ky * k}px)`;
   if (len > RADIUS) {
     dx = (dx / len) * RADIUS;
     dy = (dy / len) * RADIUS;
   }
-  knob.style.transform = `translate(${dx}px, ${dy}px)`;
   setVirtual('left', dx < -DEAD_X);
   setVirtual('right', dx > DEAD_X);
   setVirtual('up', dy < -DEAD_Y);
-  setVirtual('down', dy > DEAD_Y);
+  // Down must be the main direction, so running with a slight downward tilt never drops you.
+  setVirtual('down', dy > DEAD_Y && dy > Math.abs(dx) * 0.7);
 }
 
 let atkMode = null;
