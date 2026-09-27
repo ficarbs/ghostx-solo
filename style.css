@@ -440,3 +440,11 @@ button.wide + .stats, .eqs + button.wide { margin: 0 0 8px; }
 .cs-more { color: var(--dim); font-size: 11px; text-align: right; animation: blink 0.9s steps(2, start) infinite; }
 @keyframes blink { to { opacity: 0.25; } }
 .cs-skip { position: absolute; right: 14px; top: 14px; z-index: 1; }
+
+/* ---------- How to Play ---------- */
+.help .menus { margin: 2px 0 10px; font-size: 12px; line-height: 1.9; }
+.help .touch-keys { display: none; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin-bottom: 8px; }
+.help .touch-keys b { color: var(--gold); font-weight: 600; }
+body.touch .help .keys, body.touch .help .menus { display: none; }
+body.touch .help .touch-keys { display: grid; }
+.help .tips { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; line-height: 1.4; }

@@ -31,7 +31,7 @@ const WINDOWS = {
   bots: { title: 'Nanobots', x: 230, y: 40, w: 460 },
   quests: { title: 'Quest Log', x: 290, y: 90, w: 330 },
   shop: { title: 'Shop', x: 150, y: 50, w: 300 },
-  help: { title: 'How to Play', x: 250, y: 40, w: 460 },
+  help: { title: 'How to Play', x: 250, y: 60, w: 440 },
   missions: { title: 'Mission Terminal', x: 220, y: 40, w: 480 },
   settings: { title: 'Settings', x: 330, y: 80, w: 300 },
   workshop: { title: 'Workshop · Tech Jin', x: 200, y: 40, w: 460 },
@@ -628,28 +628,29 @@ function helpHTML() {
   return `<div class="help">
     <div class="keys">
       <div><kbd>←</kbd><kbd>→</kbd> Move</div>
-      <div><kbd>↑</kbd> Climb · enter gate · talk</div>
-      <div><kbd>↓</kbd> Climb down · <kbd>↓</kbd>+jump to drop</div>
-      <div><kbd>X</kbd> / <kbd>Alt</kbd> / <kbd>Space</kbd> Jump</div>
-      <div><kbd>Shift</kbd> / <kbd>V</kbd> Dodge (air dash in the air)</div>
-      <div><kbd>Z</kbd> / <kbd>Ctrl</kbd> Attack (hold)</div>
-      <div><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> Swap nanobot</div>
-      <div><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Nanobot skills</div>
-      <div><kbd>F</kbd> Nano Sync (full gauge)</div>
-      <div><kbd>Q</kbd> Med pack · <kbd>W</kbd> Energy cell</div>
-      <div><kbd>N</kbd> Nanobots · <kbd>I</kbd> Bag · <kbd>C</kbd> Char</div>
-      <div><kbd>J</kbd> Story · <kbd>O</kbd> Settings</div>
-      <div><kbd>R</kbd> Hoverboard · <kbd>Tab</kbd> Next bot</div>
-      <div><kbd>P</kbd> Pause · <kbd>H</kbd> Help</div>
-      <div><kbd>Esc</kbd> Close</div>
+      <div><kbd>X</kbd> Jump</div>
+      <div><kbd>↑</kbd> Climb · talk · enter</div>
+      <div><kbd>↓</kbd>+<kbd>X</kbd> Drop down</div>
+      <div><kbd>Z</kbd> Attack (hold)</div>
+      <div><kbd>Shift</kbd> Dodge</div>
+      <div><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Skills</div>
+      <div><kbd>F</kbd> Sync ultimate</div>
+      <div><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> Swap bot</div>
+      <div><kbd>Q</kbd><kbd>W</kbd> HP / EN potion</div>
     </div>
-    <p><b>No classes, just nanobots.</b> Your active nanobot is your weapon: <span style="color:${BOT_TYPES.blade.color}">Blade</span> for melee, <span style="color:${BOT_TYPES.blaster.color}">Blaster</span> for short range, <span style="color:${BOT_TYPES.sniper.color}">Sniper</span> for long range, <span style="color:${BOT_TYPES.medic.color}">Medic</span> for support. Swap mid-fight to chain combos. Bots level up and <b>evolve</b> at levels 6 and 12. <b>New nanobots</b> come only from <b>Tech Jin's requisitions</b>: one bot per requisition, your choice.</p>
-    <p><b>Dodging:</b> rolls and air dashes make you briefly invulnerable. Dodge an attack at the last instant for a <b>Perfect</b>: slow-motion, +15% Sync, and +30% damage for 1.5s. Swap nanobots right after a hit for a free <b>Swap Strike</b> from the incoming bot. Watch for the red <b>!</b>: that demon is about to attack.</p>
-    <p><b>Combos:</b> keep hitting to climb the ranks from D to SSS for bonus EXP and damage. Getting hit breaks the combo. Hits fill the <b>Sync</b> gauge. At 100%, press F.</p>
-    <p><b>Mission Terminal</b> (east side of Metro Central): repeatable wave operations graded S–C, with elite demons and better nanobot drops.</p>
-    <p><b>Act 3:</b> after the Hollow Queen, the throne's back wall opens onto the Old GhostX Academy and the Skyrail Terminus. The <b>Twin Link</b> (from the first Act 3 quest) makes the bot in your next slot fight beside you, shown as <b>P</b> in the HUD. The <b>Rift Tower</b> (Mission Terminal) is endless, and Tech Jin's <b>Legendary Forge</b> makes skill-changing mods. <b>Echo Knights</b> block basic hits from the front, so hit them from behind, or use skills and crits.</p>
-    <p><b>Act 2:</b> after the Rift Sovereign falls, the Rift Core's east gate opens onto the Shattered Mirror District, the Abyss Line, and the Throne of Echoes. Sealed gates (red bars) open as the story progresses. Look for <b>!</b> over townsfolk for side quests.</p>
-    <p class="dim">Route: Metro Central → Neon Alley → Line 9 Depot → Skyline Rooftops → Rift Core. Autosaves. On macOS, use Z instead of Ctrl to attack.</p>
+    <div class="touch-keys">
+      <div><b>Joystick</b> move, climb, drop</div>
+      <div><b>ATK</b> attack (turns into TALK / ENTER)</div>
+      <div><b>JUMP · DODGE</b> jump, roll, air dash</div>
+      <div><b>A S D · F</b> skills and Sync</div>
+    </div>
+    <div class="menus dim"><kbd>N</kbd> Bots · <kbd>I</kbd> Bag · <kbd>C</kbd> Character · <kbd>J</kbd> Quests · <kbd>O</kbd> Settings · <kbd>P</kbd> Pause · <kbd>Esc</kbd> Close</div>
+    <ul class="tips">
+      <li>Your nanobot is your weapon. Swap right after a hit for a free <b>Swap Strike</b>.</li>
+      <li>A red <b>!</b> means an attack is coming. Dodge at the last moment for a <b>Perfect</b>.</li>
+      <li>Keep hitting to raise your combo rank. Hits fill <b>Sync</b>; press F at 100%.</li>
+      <li><b>!</b> and <b>?</b> over people mark quests. Tech Jin's requisitions give new nanobots.</li>
+    </ul>
   </div>`;
 }
 
