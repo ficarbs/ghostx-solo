@@ -2,6 +2,8 @@
 
 A single-player, browser-based 2D side-scrolling action RPG inspired by **GhostX Ultimate** (GameKiss, 2011). You hunt rift demons across a neon city with **nanobots**. There are no classes: your active nanobot is your weapon and decides your moveset. All the art is drawn in code, so there are no asset files.
 
+**Play:** https://ficarbs.github.io/ghostx-solo/ works on desktop, phone and tablet. On a phone, use Add to Home Screen to play full screen in landscape.
+
 ## Run
 
 ```bash
@@ -134,7 +136,9 @@ The autopilot dodges perfectly, so humans should expect fights to take roughly 2
 
 ## Publishing
 
-The shareable build lives at https://claude.ai/artifact/4TWwpwDBVTZrvQCMDLWqT4 (share it from that page's Share menu).
+**GitHub Pages (main link):** every push to `main` redeploys https://ficarbs.github.io/ghostx-solo/ from the repo root in about a minute. There is no build step. `manifest.webmanifest` and `icons/` make it installable to the home screen.
+
+**claude.ai artifact (backup):** the older shareable build lives at https://claude.ai/artifact/4TWwpwDBVTZrvQCMDLWqT4 (share it from that page's Share menu).
 
 ```bash
 node tools/build-artifact.js

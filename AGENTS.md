@@ -43,5 +43,6 @@ Read `README.md` first: it lists every game system, the file map, the debug hook
 ## Shipping
 
 - `node tools/build-artifact.js` writes `dist/index.html` (gitignored) for the claude.ai artifact. Only Claude can publish to that link.
-- Any static host also works: serve the repo root (`index.html`, `style.css`, `src/`) as-is, e.g. with GitHub Pages or Netlify.
+- The live game is on GitHub Pages at https://ficarbs.github.io/ghostx-solo/. Every push to `main` redeploys it straight from the repo root, with no build step, so only push `main` once the game runs cleanly.
+- Asset paths must stay relative (`src/main.js`, not `/src/main.js`), because the site is served from the `/ghostx-solo/` subpath.
 - Commit in small, descriptive steps.
