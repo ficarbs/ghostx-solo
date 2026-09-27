@@ -408,6 +408,8 @@ body { font-size: 13px; }
 .q-head ~ .q-head { margin-top: 14px; }
 body.touch .st-card { transform: scale(1.15); }
 .tb.attack.talk { border-color: rgba(120, 255, 180, 0.9); background-color: rgba(20, 70, 50, 0.6); font-size: 12px; }
+.tb.attack.talk { animation: tb-swap 0.35s ease-out; }
+@keyframes tb-swap { 0% { transform: scale(1.18); box-shadow: 0 0 18px rgba(120, 255, 180, 0.9); } 100% { transform: scale(1); } }
 
 /* ---------- Workshop / Wardrobe ---------- */
 .tune-row { gap: 10px; }

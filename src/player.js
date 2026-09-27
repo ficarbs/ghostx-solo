@@ -323,9 +323,17 @@ function updateRope(p, dt, L, R, U, D, jumpP) {
   }
 }
 
+// Mid-fight (an alerted demon close by, or a boss up) the touch ATK button stays ATK,
+// so being knocked onto a gate never sends you through it. Joystick up still enters.
+function inCombat(p) {
+  if (G.boss?.alive) return true;
+  return G.mobs.some((m) => m.alive && m.aggro && Math.abs(m.x - p.x) < 320 && Math.abs(m.y - p.y) < 160);
+}
+
 // What the player could interact with right now: 'talk' (NPC), 'enter' (gate), or null.
 export function interactTarget(p = G.player) {
   if (!p || p.dead || !p.onGround || Math.abs(p.y - G.map.def.floor) > 4) return null;
+  if (inCombat(p)) return null;
   if (G.map.npcs.some((n) => Math.abs(p.x - n.x) < 45)) return 'talk';
   if (G.map.portals.some((pt) => Math.abs(p.x - pt.x) < 32)) return 'enter';
   return null;

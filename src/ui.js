@@ -639,8 +639,8 @@ function helpHTML() {
       <div><kbd>Q</kbd><kbd>W</kbd> HP / EN potion</div>
     </div>
     <div class="touch-keys">
-      <div><b>Joystick</b> move, climb, drop</div>
-      <div><b>ATK</b> attack (turns into TALK / ENTER)</div>
+      <div><b>Joystick</b> move, climb, drop · ↑ enter gate</div>
+      <div><b>ATK</b> attack (TALK / ENTER when no demons are near)</div>
       <div><b>JUMP · DODGE</b> jump, roll, air dash</div>
       <div><b>A S D · F</b> skills and Sync</div>
     </div>
