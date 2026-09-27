@@ -1,0 +1,15 @@
+{
+  "name": "GhostX Solo",
+  "short_name": "GhostX",
+  "description": "Solo nanobot action RPG inspired by GhostX Ultimate.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#05030c",
+  "theme_color": "#05030c",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

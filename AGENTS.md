@@ -37,7 +37,7 @@ Read `README.md` first: it lists every game system, the file map, the debug hook
 
 - Vanilla JS, 2-space indentation, single quotes and semicolons, all matching the existing code.
 - Keep comments short and only where the intent isn't obvious.
-- All art and audio are generated in code. Don't add asset files.
+- All art and audio are generated in code. Don't add asset files (the only exception is the home-screen icons in `icons/`).
 - Update `README.md` when you add or change a player-facing system, and keep the How to Play window (`helpHTML()` in `src/ui.js`) short.
 
 ## Shipping
