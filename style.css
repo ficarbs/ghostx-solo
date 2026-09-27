@@ -386,3 +386,22 @@ body { font-size: 13px; }
 .q-head { font: 9px var(--title-font); color: var(--gold); margin: 6px 0; }
 .q-head ~ .q-head { margin-top: 14px; }
 body.touch .st-card { zoom: 1.2; }
+.tb.attack.talk { border-color: rgba(120, 255, 180, 0.9); background-color: rgba(20, 70, 50, 0.6); font-size: 12px; }
+
+/* ---------- Workshop / Wardrobe ---------- */
+.tune-row { gap: 10px; }
+.tune-lv { width: 44px; font: 12px var(--title-font); color: var(--gold); text-align: center; }
+.tuned { color: var(--gold); }
+.wd { display: flex; gap: 12px; align-items: flex-start; }
+#wd-preview { flex: none; background: radial-gradient(#1a2a4a, #070a14); border: 2px solid var(--line); image-rendering: pixelated; }
+.wd-parts { flex: 1; min-width: 0; }
+.wd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.wd-item { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; padding: 5px 6px; background: var(--panel-2); border: 1px solid rgba(255, 255, 255, 0.08); }
+.wd-item.on { border-color: var(--gold); }
+.wd-item.locked b { color: var(--dim); }
+.wd-item button { padding: 1px 7px; font-size: 11px; }
+.wd-item small { font-size: 10px; line-height: 1.25; }
+.sw { display: inline-block; width: 14px; height: 14px; border: 2px solid #0a0c16; }
+.branch-card { min-height: 100px; }
+.branch-card small { font-size: 11px; }
+button.wide + .stats, .eqs + button.wide { margin: 0 0 8px; }

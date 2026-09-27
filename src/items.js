@@ -84,9 +84,15 @@ export function useSlot(i) {
   }
   if (it.hp && p.hp >= p.maxHp && !it.mp) return log('Your HP is already full.');
   if (it.mp && p.mp >= p.maxMp && !it.hp) return log('Your EN is already full.');
+  if (it.buff) {
+    p.buffs[it.buff] = it.dur;
+    log(`${it.name}: active for ${it.dur}s.`, 'skill');
+    burst(p.x, p.y - 30, it.buff === 'atk' ? '#ff7a3a' : '#8a7aff', 16, 160, { grav: -120, glow: true });
+  }
   if (it.hp) {
-    p.hp = Math.min(p.maxHp, p.hp + it.hp);
-    addText(p.x, p.y - 80, '+' + it.hp, 'heal');
+    const heal = Math.round(it.hp * (p.mods?.healMul || 1));
+    p.hp = Math.min(p.maxHp, p.hp + heal);
+    addText(p.x, p.y - 80, '+' + heal, 'heal');
     burst(p.x, p.y - 30, '#7dff9a', 10, 120, { grav: -150 });
   }
   if (it.mp) {

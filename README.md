@@ -43,6 +43,13 @@ On macOS, Ctrl+arrow can switch desktops, so use Z to attack.
 - **Starter choice:** a new game begins by choosing your first nanobot from the four commons: Kira (Blade), Pip (Blaster), Lens (Sniper) or Mote (Medic).
 - **Requisitions:** Tech Jin's requisition quests are the only source of new nanobots. There are 11, offered one at a time and gated by level. Each gives exactly one bot, and you pick which from its offer list. Later requisitions require Mission Terminal clears at a set grade.
 - **Evolution:** bots level up from kills and evolve at levels 6 and 12, which changes their name and look.
+- **Branch evolution:** at its final form (nanobot Lv 12) each bot specializes into one of two branches for its type:
+  - Blade: Ronin (crits) or Tempest (skill cooldowns).
+  - Blaster: Artillery (grenade) or Gatling (fire rate).
+  - Sniper: Deadeye (crit, Rail Shot) or Railgun (pierce).
+  - Medic: Seraph (healing) or Warden (barrier, drones).
+
+  You can re-spec at the Nano Lab for 1000 cr.
 - **Overclock:** at Tech Jin's Nano Lab you can spend credits plus demon loot to add +1★ (+10% power, max 5★). The last star also needs the Sovereign Core.
 - **Personality:** each bot has one of four personalities (cheerful, grumpy, stoic, nervous) and comments in speech bubbles.
 - **Nanodex:** tracks which of the 12 species you've collected.
@@ -52,6 +59,11 @@ On macOS, Ctrl+arrow can switch desktops, so use Z to attack.
 - **Mission Terminal** (east side of Metro Central): repeatable instanced wave operations, including gold-glowing **elite** demons. Each clear is graded **S/A/B/C** on time vs. par, damage taken and best combo, and the grade multiplies rewards (×0.8 to ×1.5). The post-game adds **Rift Breach** (4 elite-heavy waves) and **Sovereign EX** (Lv 20, about 3× HP and 1.7× damage).
 - **Hoverboard:** 1.75× speed and a higher jump. Attacking, using a skill or taking a hit knocks you off.
 - **Audio:** every sound effect is synthesized with WebAudio, and each zone has its own procedural music track, plus boss, mission and ending themes. You can set master, music and effects volume and turn screen shake on or off in Settings (O).
+- **Workshop** (Tech Jin):
+  - **Slot Tuning:** tunes each gear slot from +1 to +10 (head/body: DEF+HP, chip: STR+DEX) with credits and demon loot. From +4 up a tune can fail, spending the cost but never lowering the level. Tuning stays with the slot when you change gear.
+  - **Fabricator:** crafts potions, 60-second battle buffs (Overdrive Stim +25% damage, Ward Patch −25% damage taken), and four craft-only gear pieces.
+- **Wardrobe** (Dr. Mina): cosmetic hair, jacket and accessory options with a live preview. Some are bought; others are earned by clearing the story, getting S on the first three missions, completing the Nanodex, or reaching an SSS combo.
+- **Touch interaction:** next to a character the ATK button becomes **TALK**, and at a gate it becomes **ENTER**. Keyboard players can also press Enter.
 - **Dodging:** a ground roll and a once-per-jump air dash, both with brief invulnerability. A dodge can cancel a basic attack, Cyclone Edge, Overdrive or Ground Breaker's recovery, and skills can cancel the tail of a dodge. Dodging a real attack at the last instant (a projectile, charge, pounce, dive, lunge, sweep or shockwave) triggers a **Perfect**: slow-motion, +15 Sync, and +30% damage for 1.5s.
 - **Swap Strike:** swapping nanobots within 0.6s of landing a hit makes the incoming bot fire a free type-specific attack, so combos can chain across swaps.
 - **Enemy AI:** attacks are telegraphed with a red **!**. Imps pounce, hellhounds charge, brutes raise a fist and send a shockwave along the platform (jump it), glitch wisps swoop, and specters shoot and blink away when you get close. Hitting one demon pulls in its neighbours, demons spread out instead of stacking, and brutes barely flinch.
@@ -70,6 +82,9 @@ On macOS, Ctrl+arrow can switch desktops, so use Z to attack.
 | `src/mobs.js` | Demon AI, Rift Sovereign boss, loot and core drops |
 | `src/world.js` | Map loading, gates, respawns |
 | `src/missions.js` | Instanced wave missions, grading, rewards |
+| `src/workshop.js` | Slot tuning, fabricator, branch evolution, cosmetic unlocks |
+| `src/touch.js` | On-screen joystick and buttons (context-sensitive Talk/Enter) |
+| `src/pixel.js` | Pixel-art sprite baking helpers |
 | `src/audio.js` | Synthesized SFX and step-sequenced music |
 | `src/settings.js` | Volume / screen-shake preferences |
 | `src/render.js` | Canvas drawing (city backgrounds, characters, effects) |

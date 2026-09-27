@@ -5,6 +5,7 @@ import { clamp } from './fx.js';
 import { itemIcon } from './icons.js';
 import { MELEE_TIME } from './player.js';
 import { questMarker } from './quests.js';
+import { outfitById } from './workshop.js';
 import { activeBot, botType, botColor, stageOf } from './bots.js';
 import { drawBot, drawWeapon } from './botart.js';
 import { crispen, silhouette } from './pixel.js';
@@ -1181,9 +1182,8 @@ function drawPlayer(p) {
   ctx.restore();
 
   const q = playerPose(p, type);
-  const jacket = ITEMS[p.equip.body]?.color || '#44475a';
-  const head = p.equip.head || '';
-  const spr = bake(`P|${type}|${stage}|${jacket}|${head}|${q.key}`, [-76, -128, 170, 144], () => drawPlayerBody(q, type, stage, color, jacket, head));
+  const look = playerLook(p);
+  const spr = bake(`P|${type}|${stage}|${look.key}|${q.key}`, [-76, -128, 170, 144], () => drawPlayerBody(q, type, stage, color, look));
   if (p.invuln > 0 && !p.act && Math.floor(t * 20) % 2) ctx.globalAlpha = 0.45;
   blit(spr, p.x, p.y, p.face);
   ctx.globalAlpha = 1;
@@ -1204,7 +1204,36 @@ function drawPlayer(p) {
 }
 
 // The player at the origin, facing right, in one pose. Baked into a sprite by drawPlayer.
-function drawPlayerBody(q, type, stage, color, jacket, headId) {
+// Appearance: equipment plus cosmetic outfit (hair, jacket colour override, accessory).
+function playerLook(p) {
+  const s = p.style || {};
+  const jacketOverride = outfitById(s.jacket)?.color;
+  const look = {
+    jacket: jacketOverride || ITEMS[p.equip.body]?.color || '#44475a',
+    hair: outfitById(s.hair)?.color || '#16121a',
+    acc: s.acc || 'acc_none',
+    head: p.equip.head || '',
+  };
+  look.key = [look.jacket, look.hair, look.acc, look.head].join('|');
+  return look;
+}
+
+// Draw the player's idle pose into a canvas (Wardrobe preview), scaled up with hard pixels.
+export function drawPlayerPreview(canvas, p, style) {
+  const bot = activeBot(p);
+  const type = bot ? botType(bot) : 'blade';
+  const look = playerLook({ ...p, style });
+  const q = { mounted: false, hover: 0, lean: 0, spin: 0, rope: false, climb: 0, air: false, sw: 0, bob: 0, w: null, key: 'preview' };
+  const spr = bake(`P|${type}|1|${look.key}|preview`, [-76, -128, 170, 144], () => drawPlayerBody(q, type, 1, bot ? botColor(bot) : '#5ad8ff', look));
+  const x = canvas.getContext('2d');
+  x.clearRect(0, 0, canvas.width, canvas.height);
+  x.imageSmoothingEnabled = false;
+  const s = Math.floor(Math.min(canvas.width / 50, canvas.height / 50));
+  x.drawImage(spr, canvas.width / 2 - spr.ox * s, canvas.height - 6 - spr.oy * s, spr.width * s, spr.height * s);
+}
+
+function drawPlayerBody(q, type, stage, color, look) {
+  const { jacket, head: headId } = look;
   if (q.mounted) {
     ctx.fillStyle = '#1a2030';
     roundRect(-24, -8 + q.hover, 48, 7, 3);
@@ -1256,7 +1285,25 @@ function drawPlayerBody(q, type, stage, color, jacket, headId) {
   ctx.fillRect(-11, -24 + bob, 22, 2);
   ctx.fillRect(5, -42 + bob, 3, 3);
 
-  face(1, -57 + bob, '#f1c9a0', '#16121a', 'spiky');
+  if (look.acc === 'acc_flame') {
+    ctx.fillStyle = '#ff6a20';
+    for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(i * 6 - 4, -70 + bob); ctx.lineTo(i * 6, -86 + bob - (i ? 0 : 6)); ctx.lineTo(i * 6 + 4, -70 + bob); ctx.fill(); }
+  }
+  face(1, -57 + bob, '#f1c9a0', look.hair, 'spiky');
+  if (look.acc === 'acc_scarf') {
+    ctx.fillStyle = '#e03a4a';
+    ctx.fillRect(-9, -48 + bob, 18, 5);
+    ctx.fillRect(-16, -46 + bob, 8, 4); ctx.fillRect(-22, -43 + bob, 7, 4);
+  } else if (look.acc === 'acc_mask') {
+    ctx.fillStyle = '#1a1e28'; ctx.fillRect(-2, -55 + bob, 13, 7);
+    ctx.fillStyle = '#40e0ff'; ctx.fillRect(2, -53 + bob, 8, 2);
+  } else if (look.acc === 'acc_phones') {
+    ctx.fillStyle = '#2a2e38'; ctx.fillRect(-10, -69 + bob, 22, 3);
+    ctx.fillStyle = '#ff3a8a'; ctx.fillRect(-12, -62 + bob, 6, 9);
+  } else if (look.acc === 'acc_halo') {
+    ctx.strokeStyle = '#ffe27a'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(1, -80 + bob, 11, 3, 0, 0, PI * 2); ctx.stroke();
+  }
   ctx.fillStyle = color;
   ctx.fillRect(-2, -72 + bob, 3, 6);
 

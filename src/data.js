@@ -26,6 +26,8 @@ export const ITEMS = {
   med_m: { name: 'Trauma Kit', type: 'use', icon: ['medkit', '#ff7a2a'], hp: 160, price: 70, desc: 'Restores 160 HP.' },
   cell_s: { name: 'Energy Cell', type: 'use', icon: ['cell', '#3bb0e0'], mp: 40, price: 30, desc: 'Recharges 40 EN.' },
   cell_m: { name: 'Fusion Cell', type: 'use', icon: ['cell', '#8a5cff'], mp: 120, price: 90, desc: 'Recharges 120 EN.' },
+  stim: { name: 'Overdrive Stim', type: 'use', icon: ['cell', '#ff5a3a'], buff: 'atk', dur: 60, sell: 40, desc: 'Fabricated. +25% damage for 60 seconds.' },
+  ward: { name: 'Ward Patch', type: 'use', icon: ['medkit', '#8a7aff'], buff: 'ward', dur: 60, sell: 50, desc: 'Fabricated. Take 25% less damage for 60 seconds.' },
   recall: { name: 'Recall Beacon', type: 'use', icon: ['beacon', '#6af0ff'], town: true, price: 60, desc: 'Teleports you back to Metro Central.' },
   hoverboard: { name: 'Hoverboard', type: 'key', icon: ['board', '#40e0ff'], lv: 5, price: 1500, desc: 'Press R to ride. Much faster, but you have to hop off to fight.' },
 
@@ -48,6 +50,10 @@ export const ITEMS = {
 
   focus_chip: { name: 'Focus Chip', type: 'equip', slot: 'chip', str: 2, lv: 2, sell: 60, icon: ['chip', '#4fc08a'], desc: 'Boosts nanobot output.' },
   reflex_chip: { name: 'Reflex Chip', type: 'equip', slot: 'chip', dex: 4, str: 1, lv: 7, sell: 300, rare: true, icon: ['chip', '#c8c8ff'], desc: 'Overclocks your reaction time.' },
+  fang_visor: { name: 'Fang Visor', type: 'equip', slot: 'head', def: 5, dex: 3, lv: 5, sell: 250, icon: ['visor', '#ffb060'], color: '#ffb060', look: 'visor', desc: 'Fabricated from hellhound fangs.' },
+  shade_coat: { name: 'Shade-Weave Coat', type: 'equip', slot: 'body', def: 13, vit: 2, dex: 1, lv: 8, sell: 700, icon: ['jacket', '#3a2a6a'], color: '#3a2a6a', desc: 'Fabricated. Light, cold, and very hard to hit.' },
+  brute_chip: { name: 'Brute Core Chip', type: 'equip', slot: 'chip', str: 4, vit: 3, lv: 10, sell: 1200, icon: ['chip', '#ffa030'], desc: 'Fabricated from brute plating.' },
+  rift_visor: { name: 'Rift Visor', type: 'equip', slot: 'head', def: 10, str: 2, dex: 2, hp: 150, lv: 13, sell: 2500, rare: true, icon: ['visor', '#ff3a6a'], color: '#ff3a6a', look: 'visor', desc: 'Fabricated around a Sovereign Core.' },
   sovereign_chip: { name: 'Sovereign Chip', type: 'equip', slot: 'chip', str: 5, dex: 5, vit: 5, lv: 10, sell: 2500, rare: true, icon: ['chip', '#ff4a6a'], desc: 'Rift energy, tamed. Mostly.' },
 };
 
@@ -83,6 +89,79 @@ export const BOTS = {
 };
 export const BOT_ORDER = Object.keys(BOTS);
 export const STARTERS = ['kira', 'pip', 'lens', 'mote'];
+
+// Branching evolution: at stage 3 (nanobot Lv 12) each bot takes one of its type's two branches.
+// mods are read by player.js: crit/critDmg add, cd/skillDmg per skill id, *Mul multiply.
+export const BRANCHES = {
+  blade: [
+    { id: 'ronin', name: 'Ronin', desc: '+12% critical chance, and critical hits deal +30% damage.', mods: { crit: 0.12, critDmg: 0.3 } },
+    { id: 'tempest', name: 'Tempest', desc: 'Phase Dash and Cyclone Edge cooldowns -35%. Cyclone Edge lasts 50% longer.', mods: { cd: { dash: 0.65, whirl: 0.65 }, whirlMul: 1.5 } },
+  ],
+  blaster: [
+    { id: 'artillery', name: 'Artillery', desc: 'Frag Grenade blast radius +50% and damage +25%.', mods: { aoeMul: 1.5, skillDmg: { grenade: 1.25 } } },
+    { id: 'gatling', name: 'Gatling', desc: 'Basic fire rate +30%. Overdrive lasts 50% longer.', mods: { rateMul: 0.77, overdriveMul: 1.5 } },
+  ],
+  sniper: [
+    { id: 'deadeye', name: 'Deadeye', desc: '+15% critical chance, and Rail Shot cooldown -30%.', mods: { crit: 0.15, cd: { pierce: 0.7 } } },
+    { id: 'railgun', name: 'Railgun', desc: 'Basic shots pierce 2 more enemies and deal +20% damage.', mods: { pierce: 2, basicMul: 1.2 } },
+  ],
+  medic: [
+    { id: 'seraph', name: 'Seraph', desc: 'All healing +50%, potions included.', mods: { healMul: 1.5 } },
+    { id: 'warden', name: 'Warden', desc: 'Barrier lasts 3s longer. Drone Swarm deploys 5 drones.', mods: { barrierAdd: 3, drones: 5 } },
+  ],
+};
+export const RESPEC_COST = 1000;
+
+// Slot tuning: each equipment slot (not the item) tunes +1..+10 with credits and demon loot.
+export const TUNE_MAX = 10;
+export const TUNE_BONUS = { head: { def: 2, hp: 12 }, body: { def: 3, hp: 20 }, chip: { str: 1, dex: 1 } };
+const TUNE_MATS = ['demon_horn', 'glitch_shard', 'hound_fang', 'shade_residue', 'brute_plate'];
+const TUNE_CHANCE = [1, 1, 1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3];
+export const tuneCost = (n) => ({ gold: 120 * (n + 1) ** 2, items: [[TUNE_MATS[Math.floor(n / 2)], 3 + (n % 2) * 2]], chance: TUNE_CHANCE[n] });
+
+// Fabricator recipes at Tech Jin's Workshop.
+export const RECIPES = [
+  { out: 'med_m', n: 3, lv: 1, gold: 40, items: [['demon_horn', 4]] },
+  { out: 'cell_m', n: 3, lv: 1, gold: 60, items: [['glitch_shard', 4]] },
+  { out: 'stim', n: 1, lv: 4, gold: 120, items: [['hound_fang', 3], ['glitch_shard', 2]] },
+  { out: 'ward', n: 1, lv: 6, gold: 160, items: [['shade_residue', 3], ['demon_horn', 3]] },
+  { out: 'fang_visor', n: 1, lv: 5, gold: 600, items: [['hound_fang', 10], ['glitch_shard', 6]] },
+  { out: 'shade_coat', n: 1, lv: 8, gold: 1500, items: [['shade_residue', 10], ['hound_fang', 6]] },
+  { out: 'brute_chip', n: 1, lv: 10, gold: 2500, items: [['brute_plate', 10], ['shade_residue', 6]] },
+  { out: 'rift_visor', n: 1, lv: 13, gold: 5000, items: [['sovereign_core', 1], ['brute_plate', 8]] },
+];
+
+// Cosmetics (no stats). price = buy at Dr. Mina's Wardrobe; unlock = earned (see unlockMet in ui.js).
+export const OUTFITS = {
+  hair: [
+    { id: 'hair_black', name: 'Midnight', color: '#16121a' },
+    { id: 'hair_silver', name: 'Silver', color: '#d8dce8', price: 300 },
+    { id: 'hair_crimson', name: 'Crimson', color: '#b8203a', price: 300 },
+    { id: 'hair_cyan', name: 'Neon Cyan', color: '#30c8e8', price: 500 },
+    { id: 'hair_gold', name: 'Gold', color: '#e8b830', unlock: 'story' },
+  ],
+  jacket: [
+    { id: 'jacket_gear', name: 'Match armor', color: null },
+    { id: 'jacket_street', name: 'Street Red', color: '#c83a5a', price: 500 },
+    { id: 'jacket_neon', name: 'Neon', color: '#28a8d0', price: 800 },
+    { id: 'jacket_white', name: 'Clean White', color: '#e0e4ec', price: 800 },
+    { id: 'jacket_rift', name: 'Rift Black', color: '#2a0a18', unlock: 'allS' },
+  ],
+  acc: [
+    { id: 'acc_none', name: 'None' },
+    { id: 'acc_scarf', name: 'Scarf', price: 400 },
+    { id: 'acc_phones', name: 'Headphones', price: 600 },
+    { id: 'acc_mask', name: 'Tactical Mask', price: 700 },
+    { id: 'acc_halo', name: 'Nano Halo', unlock: 'nanodex' },
+    { id: 'acc_flame', name: 'SSS Flame', unlock: 'sss' },
+  ],
+};
+export const UNLOCKS = {
+  story: 'Defeat the Rift Sovereign',
+  allS: 'Earn an S on Alley Outbreak, Depot Lockdown and Rooftop Siege',
+  nanodex: 'Collect all 12 nanobots',
+  sss: 'Reach an SSS combo (400 hits)',
+};
 
 // Overclock: +1 star (+10% power) per level, paid in credits and demon loot. Index = current stars.
 export const OVERCLOCK = [
@@ -283,7 +362,7 @@ export const MAPS = {
 
 export const NPCS = {
   captain: { name: 'Captain Yoon', role: 'quest', greet: 'Rifts are tearing open all over the city. GhostX needs every hunter we\'ve got. That means you.' },
-  mina: { name: 'Dr. Mina', role: 'shop', shop: ['med_s', 'med_m', 'cell_s', 'cell_m', 'recall'],
+  mina: { name: 'Dr. Mina', role: 'shop', wardrobe: true, shop: ['med_s', 'med_m', 'cell_s', 'cell_m', 'recall'],
     greet: 'Med packs, energy cells, recall beacons. Stay in one piece out there.' },
   terminal: { name: 'Mission Terminal', role: 'missions', greet: 'GHOSTX TACTICAL NETWORK · Select an operation.' },
   jin: { name: 'Tech Jin', role: 'shop', lab: true, shop: ['hoverboard', 'kevlar', 'nano_jacket', 'street_cap', 'tac_visor', 'combat_helm'],

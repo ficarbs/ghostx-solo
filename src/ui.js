@@ -4,7 +4,7 @@ import { setViewWidth, ITEMS, NPCS, QUESTS, CURRENCY, VIEW_W, VIEW_H, BOTS, BOT_
 import * as input from './input.js';
 import { itemIcon, skillIcon, botIcon } from './icons.js';
 import { useSlot, unequip, addItem, canAdd, countItem, quickPotion } from './items.js';
-import { recalc, revive } from './player.js';
+import { recalc, revive, interactTarget } from './player.js';
 import { activeBot, botByUid, botName, botType, botColor, botPower, stageOf, botSkills, equipBot, unslot, swapTo, overclock, overclockCost, canOverclock, STAGE_LV } from './bots.js';
 import { CHAINS, currentQuest, questState, questReady, questMarker, goalRows, acceptQuest, completeQuest, pickOptions } from './quests.js';
 import { log as fxLog } from './fx.js';
@@ -13,8 +13,10 @@ import { startMission, missionLocked, remaining, fmtTime } from './missions.js';
 import { settings, updateSetting } from './settings.js';
 import { deleteSave } from './save.js';
 import { sfx, playMusic } from './audio.js';
-import { setRenderScale, buildLayers } from './render.js';
-import { initTouch, refreshTouchSkills, applyTouchMode, touchEnabled } from './touch.js';
+import { setRenderScale, buildLayers, drawPlayerPreview } from './render.js';
+import { tune, canTune, craft, canCraft, setBranch, branchesFor, branchOf, checkUnlocks, buyOutfit, wearOutfit, owns, unlockMet } from './workshop.js';
+import { RECIPES, TUNE_MAX, TUNE_BONUS, tuneCost, OUTFITS, UNLOCKS, RESPEC_COST } from './data.js';
+import { initTouch, refreshTouchSkills, applyTouchMode, touchEnabled, setAttackMode } from './touch.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -29,6 +31,8 @@ const WINDOWS = {
   help: { title: 'How to Play', x: 250, y: 40, w: 460 },
   missions: { title: 'Mission Terminal', x: 220, y: 40, w: 480 },
   settings: { title: 'Settings', x: 330, y: 80, w: 300 },
+  workshop: { title: 'Workshop · Tech Jin', x: 200, y: 40, w: 460 },
+  wardrobe: { title: 'Wardrobe · Dr. Mina', x: 230, y: 40, w: 440 },
 };
 const openWins = new Set();
 let shopNpc = null;
@@ -69,6 +73,7 @@ export function initUI({ onNew, onContinue, hasSave }) {
     els.combo.querySelector('.c-rank').classList.add('pop');
   };
   G.hooks.missionResult = showResult;
+  G.hooks.branchChoice = (b) => setTimeout(() => showBranchChoice(b, false), 1600);
   G.hooks.bossDown = (m) => {
     const p = G.player;
     if (m.ex || p.storyDone) return;
@@ -199,11 +204,13 @@ export function frameUI(dt) {
     $('#hud-name').textContent = p.name;
     $('#hud-gold').textContent = `${p.gold.toLocaleString()} ${CURRENCY}`;
     updateSlots();
+    checkUnlocks();
     $('#hud-menu [data-win="char"]').classList.toggle('alert', p.statPts > 0);
     $('#hud-menu [data-win="quests"]').classList.toggle('alert', questMarker('captain') === '?' || questMarker('jin') === '?');
   }
   updateCooldowns();
   updateCombo();
+  if (touchEnabled()) setAttackMode(dialogKind ? null : interactTarget(p));
   drawMinimap();
   updateBoss();
   updateTracker();
@@ -419,7 +426,8 @@ function handleEsc() {
 
 function renderWin(id) {
   const body = $('#win-' + id + ' .win-body');
-  body.innerHTML = { inv: invHTML, char: charHTML, bots: botsHTML, quests: questsHTML, shop: shopHTML, help: helpHTML, missions: missionsHTML, settings: settingsHTML }[id]();
+  body.innerHTML = { inv: invHTML, char: charHTML, bots: botsHTML, quests: questsHTML, shop: shopHTML, help: helpHTML, missions: missionsHTML, settings: settingsHTML, workshop: workshopHTML, wardrobe: wardrobeHTML }[id]();
+  if (id === 'wardrobe') drawPlayerPreview($('#wd-preview'), G.player, G.player.style);
   if (id === 'shop') $('#win-shop .win-head span').textContent = shopNpc ? NPCS[shopNpc].name : 'Shop';
   if (id === 'bots') $('#win-bots .win-head span').textContent = labMode ? 'Nano Lab · Tech Jin' : 'Nanobots';
 }
@@ -443,13 +451,14 @@ function charHTML() {
     const id = p.equip[k];
     return `<div class="eq" data-unequip="${k}" ${id ? `data-item="${id}"` : ''}>
       <div class="cell ${id && ITEMS[id].rare ? 'rare' : ''}">${id ? `<img src="${itemIcon(id).url}" alt="">` : ''}</div>
-      <div><small>${label}</small><div>${id ? esc(ITEMS[id].name) : '<span class="dim">—</span>'}</div></div></div>`;
+      <div><small>${label}${p.enh[k] ? ` <b class="tuned">+${p.enh[k]}</b>` : ''}</small><div>${id ? esc(ITEMS[id].name) : '<span class="dim">—</span>'}</div></div></div>`;
   };
   const stat = (k, label) => `<div class="stat"><span>${label}</span><b>${p[k]}</b>${p.base[k] !== p[k] ? `<small>(${p.base[k]}+${p[k] - p.base[k]})</small>` : ''}${p.statPts > 0 ? `<button data-stat="${k}">+</button>` : ''}</div>`;
   const need = expNeed(p.lv);
   return `
     <div class="char-top"><div class="big">${esc(p.name)}</div><div>GhostX Hunter · Lv ${p.lv}</div><div class="dim">EXP ${p.exp} / ${need}</div></div>
     <div class="eqs three">${slot('head', 'Head')}${slot('body', 'Body')}${slot('chip', 'Chip')}</div>
+    <button class="wide" data-open="wardrobe">Wardrobe</button>
     ${bot ? `<div class="eq-bot" style="--c:${botColor(bot)}"><img src="${botIcon(bot.sp, stageOf(bot)).url}" alt=""><div><small>Active nanobot</small><div>${esc(botName(bot))} ${stars(bot)}</div><small class="dim">${BOT_TYPES[botType(bot)].name} · Lv ${bot.lv} · Power +${Math.round(botPower(bot))}</small></div></div>` : ''}
     <div class="stats">
       <div class="stat"><span>HP</span><b>${Math.round(p.hp)} / ${p.maxHp}</b></div>
@@ -497,12 +506,14 @@ function botsHTML() {
     return `<div class="bot-card" style="--c:${botColor(b)}" data-bot="${b.uid}">
       <img src="${botIcon(b.sp, stageOf(b)).url}" alt="">
       <div class="grow">
-        <div><b>${esc(botName(b))}</b> ${stars(b)} <span class="rar r${s.rarity}">${RARITY[s.rarity]}</span></div>
+        <div><b>${esc(botName(b))}</b> ${stars(b)} <span class="rar r${s.rarity}">${RARITY[s.rarity]}</span>${branchOf(b) ? ` <span class="tag">${branchOf(b).name}</span>` : ''}</div>
         <small class="dim">${BOT_TYPES[s.type].name} · Lv ${b.lv}${nextEvo && stageOf(b) < 3 ? ` · evolves at ${nextEvo}` : ''} · Power +${Math.round(botPower(b))}</small>
         <div class="bexp"><div style="width:${expPct}%"></div></div>
       </div>
       <div class="bot-actions">
         ${slotted >= 0 ? `<span class="tag">Slot ${slotted + 1}</span>` : [0, 1, 2].map((i) => `<button data-equipbot="${b.uid}" data-to="${i}">${i + 1}</button>`).join('')}
+        ${stageOf(b) === 3 && !b.branch ? `<button class="primary" data-branchfor="${b.uid}">Choose branch</button>` : ''}
+        ${labMode && b.branch ? `<button data-branchfor="${b.uid}" data-respec="1">Re-spec ${RESPEC_COST}</button>` : ''}
         ${labMode && oc ? `<button class="primary" data-overclock="${b.uid}" ${canOverclock(b) ? '' : 'disabled'} title="${oc.gold} ${CURRENCY} + ${oc.items.map(([id, n]) => `${n}× ${ITEMS[id].name}`).join(' + ')}">Overclock ★${b.stars + 1}</button>` : ''}
       </div>
     </div>`;
@@ -609,6 +620,19 @@ function onWinClick(id, e) {
     equipBot(+d.equipbot, +d.to);
   } else if (d.unslot !== undefined) {
     unslot(+d.unslot);
+  } else if (d.tune) {
+    tune(d.tune);
+  } else if (d.craft !== undefined) {
+    craft(RECIPES[+d.craft]);
+  } else if (d.wtab) {
+    workshopTab = d.wtab;
+    G.dirty = true;
+  } else if (d.buyout) {
+    buyOutfit(d.buyout);
+  } else if (d.wear) {
+    wearOutfit(d.part, d.wear);
+  } else if (d.branchfor) {
+    showBranchChoice(botByUid(+d.branchfor), d.respec === '1');
   } else if (d.overclock) {
     overclock(+d.overclock);
   } else if (d.launch) {
@@ -766,6 +790,8 @@ function talkTo(id) {
   if (npc.lab) buttons.push({ label: questMarker('jin') ? `Requisition ${questMarker('jin')}` : 'Requisition', primary: true, fn: () => { closeDialog(); talkGiver('jin'); } });
   buttons.push({ label: 'Shop', primary: !npc.lab, fn: () => { closeDialog(); openShop(id); } });
   if (npc.lab) buttons.push({ label: 'Nano Lab', fn: () => { closeDialog(); openLab(); } });
+  if (npc.lab) buttons.push({ label: 'Workshop', fn: () => { closeDialog(); showWin('workshop'); } });
+  if (npc.wardrobe) buttons.push({ label: 'Wardrobe', fn: () => { closeDialog(); showWin('wardrobe'); } });
   buttons.push({ label: 'Goodbye', fn: closeDialog });
   showDialog('npc', npc.name, esc(npc.greet), buttons);
 }
@@ -1004,5 +1030,72 @@ function showStarterPick(name, onNew) {
     els.title.classList.add('hidden');
     onNew(name, c.dataset.sp);
     showWin('help');
+  }));
+}
+
+// ---------- Workshop: slot tuning + fabricator ----------
+
+let workshopTab = 'tune';
+const matList = (items) => items.map(([id, n]) => `<span class="${countItem(id) >= n ? '' : 'bad'}">${n}× ${esc(ITEMS[id].name)} (${countItem(id)})</span>`).join(' · ');
+
+function workshopHTML() {
+  const p = G.player;
+  const tabs = `<div class="tabs"><button class="${workshopTab === 'tune' ? 'on' : ''}" data-wtab="tune">Slot Tuning</button><button class="${workshopTab === 'craft' ? 'on' : ''}" data-wtab="craft">Fabricator</button><span class="gold">${p.gold.toLocaleString()} ${CURRENCY}</span></div>`;
+  if (workshopTab === 'tune') {
+    const rows = ['head', 'body', 'chip'].map((slot) => {
+      const n = p.enh[slot];
+      const bonus = Object.entries(TUNE_BONUS[slot]).map(([k, v]) => `+${v} ${k.toUpperCase()}`).join(', ');
+      const max = n >= TUNE_MAX;
+      const c = max ? null : tuneCost(n);
+      return `<div class="row tune-row">
+        <div class="tune-lv">+${n}</div>
+        <div class="grow"><b>${slot[0].toUpperCase() + slot.slice(1)} slot</b> <small class="dim">each level: ${bonus}${p.equip[slot] ? '' : ' · equip something to use it'}</small>
+          ${max ? '<div class="dim">Fully tuned.</div>' : `<div><small>${c.gold} ${CURRENCY} · ${matList(c.items)} · <b>${Math.round(c.chance * 100)}%</b> success</small></div>`}</div>
+        ${max ? '' : `<button class="primary" data-tune="${slot}" ${canTune(slot) ? '' : 'disabled'}>Tune +${n + 1}</button>`}
+      </div>`;
+    }).join('');
+    return tabs + `<div class="shop-list">${rows}</div><div class="hint">Tuning belongs to the slot, not the item, so it carries over when you change gear. From +4 up a tune can fail: the cost is spent, but the level never drops.</div>`;
+  }
+  const rows = RECIPES.map((r, i) => {
+    const it = ITEMS[r.out];
+    const low = p.lv < r.lv;
+    return `<div class="row" data-item="${r.out}"><div class="cell ${it.rare ? 'rare' : ''}"><img src="${itemIcon(r.out).url}" alt="">${r.n > 1 ? `<b>${r.n}</b>` : ''}</div>
+      <div class="grow"><div>${esc(it.name)} ${low ? `<small class="bad">Lv ${r.lv}</small>` : ''}</div><small>${r.gold} ${CURRENCY} · ${matList(r.items)}</small></div>
+      <button class="primary" data-craft="${i}" ${canCraft(r) ? '' : 'disabled'}>Make</button></div>`;
+  }).join('');
+  return tabs + `<div class="shop-list">${rows}</div><div class="hint">Materials drop from demons. Stims and Ward Patches are 60-second battle buffs.</div>`;
+}
+
+// ---------- Wardrobe ----------
+
+function wardrobeHTML() {
+  const p = G.player;
+  const part = (key, title) => `<div class="wd-part"><div class="q-head">${title}</div><div class="wd-grid">${OUTFITS[key].map((o) => {
+    const have = owns(o.id);
+    const on = p.style[key] === o.id;
+    const sw = o.color ? `<i class="sw" style="background:${o.color}"></i>` : '';
+    let action;
+    if (on) action = '<span class="tag">Wearing</span>';
+    else if (have) action = `<button data-wear="${o.id}" data-part="${key}">Wear</button>`;
+    else if (o.price) action = `<button class="primary" data-buyout="${o.id}" ${p.gold < o.price ? 'disabled' : ''}>${o.price} ${CURRENCY}</button>`;
+    else action = `<small class="dim">${esc(UNLOCKS[o.unlock])}</small>`;
+    return `<div class="wd-item ${on ? 'on' : ''} ${have ? '' : 'locked'}">${sw}<b>${esc(o.name)}</b>${action}</div>`;
+  }).join('')}</div></div>`;
+  return `<div class="wd"><canvas id="wd-preview" width="150" height="190"></canvas><div class="wd-parts">
+    ${part('hair', 'Hair')}${part('jacket', 'Jacket')}${part('acc', 'Accessory')}</div></div>
+    <div class="hint">Cosmetic only. "Match armor" shows your equipped body armor's colour. Earned outfits unlock automatically. <span class="gold">${p.gold.toLocaleString()} ${CURRENCY}</span></div>`;
+}
+
+// ---------- Branch evolution choice ----------
+
+function showBranchChoice(b, respec) {
+  if (!b || dialogKind) return;
+  const opts = branchesFor(b);
+  const html = `${esc(botName(b))} reached its final form. Choose its specialization${respec ? ` (re-spec costs ${RESPEC_COST} ${CURRENCY})` : ''}.
+    <div class="pick">${opts.map((o) => `<button class="pick-card branch-card" data-branch="${o.id}" style="--c:${botColor(b)}" ${b.branch === o.id ? 'disabled' : ''}>
+      <b>${esc(o.name)}</b><small>${esc(o.desc)}</small>${b.branch === o.id ? '<small class="dim">Current</small>' : ''}</button>`).join('')}</div>`;
+  showDialog('npc', 'Branch Evolution', html, [{ label: 'Decide later', fn: closeDialog }]);
+  els.dialog.querySelectorAll('.branch-card').forEach((c) => c.addEventListener('click', () => {
+    if (setBranch(b.uid, c.dataset.branch, respec)) closeDialog();
   }));
 }

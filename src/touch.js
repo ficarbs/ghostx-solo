@@ -40,11 +40,14 @@ export function initTouch(ui, scaleFn) {
   knob = stick.querySelector('.knob');
 
   for (const btn of root.querySelectorAll('.tb')) {
-    const a = btn.dataset.a;
+    // The attack button turns into Talk / Enter next to a character or gate.
+    const actionOf = () => (btn.dataset.a === 'attack' && atkMode ? 'interact' : btn.dataset.a);
+    let a = btn.dataset.a;
     const down = (e) => {
       e.preventDefault();
       capture(btn, e);
       btn.classList.add('on');
+      a = actionOf();
       setVirtual(a, true);
     };
     const up = (e) => {
@@ -112,6 +115,15 @@ function moveStick(e) {
   setVirtual('right', dx > DEAD_X);
   setVirtual('up', dy < -DEAD_Y);
   setVirtual('down', dy > DEAD_Y);
+}
+
+let atkMode = null;
+export function setAttackMode(mode) {
+  if (!root || mode === atkMode) return;
+  atkMode = mode;
+  const btn = root.querySelector('.tb.attack');
+  btn.querySelector('span').textContent = mode === 'talk' ? 'TALK' : mode === 'enter' ? 'ENTER' : 'ATK';
+  btn.classList.toggle('talk', !!mode);
 }
 
 export function applyTouchMode() {

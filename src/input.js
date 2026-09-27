@@ -9,6 +9,7 @@ const KEYMAP = {
   KeyI: 'inv', KeyC: 'char', KeyE: 'char', KeyN: 'bots', KeyK: 'bots', KeyJ: 'quests', KeyH: 'help',
   KeyR: 'mount', KeyO: 'settings', KeyP: 'pause', Tab: 'swapnext',
   ShiftLeft: 'dodge', ShiftRight: 'dodge', KeyV: 'dodge',
+  Enter: 'interact', NumpadEnter: 'interact',
   Escape: 'esc',
 };
 

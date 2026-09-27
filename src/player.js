@@ -1,6 +1,6 @@
 // Player: stats, movement physics, ladders, nanobot-driven combat, combo meter, leveling, death.
 import { G } from './state.js';
-import { VIEW_W, ITEMS, MAX_LV, GRAVITY, JUMP_V, RUN_SPEED, CLIMB_SPEED, INV_SIZE, BOT_BASIC, RANKS, COMBO_TIME, BOT_TYPES, expNeed } from './data.js';
+import { VIEW_W, ITEMS, BRANCHES, TUNE_BONUS, MAX_LV, GRAVITY, JUMP_V, RUN_SPEED, CLIMB_SPEED, INV_SIZE, BOT_BASIC, RANKS, COMBO_TIME, BOT_TYPES, expNeed } from './data.js';
 import * as input from './input.js';
 import { addText, burst, shake, log, effect, banner, rand, clamp } from './fx.js';
 import { damageMob } from './mobs.js';
@@ -26,6 +26,9 @@ export function createPlayer(name, starter = 'kira') {
     quests: {},
     bots: [], slots: [null, null, null], active: 0, seen: [starter], bestCombo: 0,
     missions: {}, storyDone: false, playTime: 0,
+    enh: { head: 0, body: 0, chip: 0 },
+    style: { hair: 'hair_black', jacket: 'jacket_gear', acc: 'acc_none' },
+    owned: ['hair_black', 'jacket_gear', 'acc_none'],
   };
   const first = newBot(p, starter);
   p.bots.push(first);
@@ -49,14 +52,20 @@ export function initRuntime(p) {
     dead: false, potCd: 0, regenT: 0, walkT: 0, climbT: 0,
     hits: 0, hitT: 0, rank: 0, sync: 0, mounted: false,
     dodgeCd: 0, airDashed: false, perfectWin: 0, counterT: 0, lastHitT: 99,
+    buffs: { atk: 0, ward: 0 }, mods: {},
     botX: null, botY: null,
   });
 }
 
 export function recalc(p) {
   const eq = Object.values(p.equip).filter(Boolean).map((id) => ITEMS[id]);
-  const sum = (k) => eq.reduce((a, it) => a + (it[k] || 0), 0);
+  // Slot tuning counts only while something is equipped in the slot.
+  const tuned = Object.entries(p.enh || {}).filter(([slot, n]) => n && p.equip[slot]);
+  const sum = (k) => eq.reduce((a, it) => a + (it[k] || 0), 0) + tuned.reduce((a, [slot, n]) => a + (TUNE_BONUS[slot][k] || 0) * n, 0);
   const bot = activeBot(p);
+  // Branch-evolution modifiers of the active nanobot.
+  const br = bot?.branch ? BRANCHES[botType(bot)].find((b) => b.id === bot.branch) : null;
+  p.mods = br ? br.mods : {};
   p.str = p.base.str + sum('str');
   p.dex = p.base.dex + sum('dex');
   p.vit = p.base.vit + sum('vit');
@@ -65,7 +74,7 @@ export function recalc(p) {
   p.botAtk = bot ? botPower(bot) : 0;
   p.atk = 3 + p.botAtk + p.str * 1.6 + p.lv * 1.2;
   p.def = sum('def') + p.vit * 0.35;
-  p.crit = Math.min(0.6, 0.05 + p.dex * 0.006);
+  p.crit = Math.min(0.75, 0.05 + p.dex * 0.006 + (p.mods.crit || 0));
   if (p.hp !== undefined) {
     p.hp = Math.min(p.hp, p.maxHp);
     p.mp = Math.min(p.mp, p.maxMp);
@@ -133,6 +142,7 @@ export function updatePlayer(dt) {
   p.dodgeCd -= dt;
   p.perfectWin -= dt;
   p.counterT -= dt;
+  if (p.buffs) for (const k in p.buffs) if (p.buffs[k] > 0 && (p.buffs[k] -= dt) <= 0) log(k === 'atk' ? 'Overdrive Stim wore off.' : 'Ward Patch wore off.');
   p.lastHitT += dt;
   G.sayCd = (G.sayCd || 0) - dt;
 
@@ -183,7 +193,7 @@ export function updatePlayer(dt) {
   if (tapped('mount')) toggleMount(p);
   if (tapped('dodge')) tryDodge(p, L, R);
 
-  if (tapped('up') && p.onGround && !p.act && p.attackT <= 0) {
+  if ((tapped('up') || tapped('interact')) && p.onGround && !p.act && p.attackT <= 0) {
     if (tryPortal(p) || tryNpc(p)) return;
   }
 
@@ -310,6 +320,14 @@ function updateRope(p, dt, L, R, U, D, jumpP) {
   }
 }
 
+// What the player could interact with right now: 'talk' (NPC), 'enter' (gate), or null.
+export function interactTarget(p = G.player) {
+  if (!p || p.dead || !p.onGround || Math.abs(p.y - G.map.def.floor) > 4) return null;
+  if (G.map.npcs.some((n) => Math.abs(p.x - n.x) < 45)) return 'talk';
+  if (G.map.portals.some((pt) => Math.abs(p.x - pt.x) < 32)) return 'enter';
+  return null;
+}
+
 function tryPortal(p) {
   for (const pt of G.map.portals) {
     if (Math.abs(p.x - pt.x) < 32 && Math.abs(p.y - G.map.def.floor) < 4) {
@@ -335,7 +353,8 @@ function tryNpc(p) {
 export function rollDamage(p, mult, m) {
   let d = p.atk * mult * rand(0.88, 1.12) * (1 + RANKS[p.rank].dmg) * (p.counterT > 0 ? 1.3 : 1);
   const crit = Math.random() < p.crit;
-  if (crit) d *= 1.6;
+  if (crit) d *= 1.6 + (p.mods.critDmg || 0);
+  if (p.buffs?.atk > 0) d *= 1.25;
   d = Math.max(1, Math.round(d - m.def));
   return { d, crit };
 }
@@ -392,7 +411,7 @@ function startAttack(p, type) {
     return;
   }
   const B = BOT_BASIC[type];
-  p.attackT = B.rate;
+  p.attackT = B.rate * (p.mods.rateMul || 1);
   const color = BOT_TYPES[type].color;
   const [ox, oy] = muzzle(p);
   const aim = autoAim(p, ox, oy, B.speed * B.life);
@@ -403,7 +422,7 @@ function startAttack(p, type) {
       shot(ox, oy, a, B.speed, { mult: B.mult, life: B.life, r: 5, color, knock: 70 });
     }
   } else if (type === 'sniper') {
-    shot(ox, oy, aim, B.speed, { mult: B.mult, life: B.life, r: 4, color, pierce: B.pierce, knock: 140, trail: true });
+    shot(ox, oy, aim, B.speed, { mult: B.mult * (p.mods.basicMul || 1), life: B.life, r: 4, color, pierce: B.pierce + (p.mods.pierce || 0), knock: 140, trail: true });
   } else if (type === 'medic') {
     shot(ox, oy, aim, B.speed, { mult: B.mult, life: B.life, r: 7, color, leech: B.leech, knock: 60 });
   }
@@ -469,7 +488,7 @@ export function updateShots(dt) {
           break;
         }
         hitMob(p, m, s.mult, { knock: s.knock ?? 80, dir: Math.sign(s.vx) || p.face });
-        if (s.leech) p.hp = Math.min(p.maxHp, p.hp + Math.max(1, Math.round(p.maxHp * s.leech)));
+        if (s.leech) p.hp = Math.min(p.maxHp, p.hp + Math.max(1, Math.round(p.maxHp * s.leech * (p.mods.healMul || 1))));
         s.pierce--;
         if (s.pierce < 0) {
           s.dead = true;
@@ -561,7 +580,8 @@ function useSkill(p, i) {
     return;
   }
   p.mp -= sk.mp;
-  p.cd[sk.id] = sk.cd;
+  p.cd[sk.id] = sk.cd * (p.mods.cd?.[sk.id] ?? 1);
+  const mult = sk.mult * (p.mods.skillDmg?.[sk.id] ?? 1);
   p.attackT = 0;
   p.lastAtk = 0;
   const color = botColor(bot);
@@ -570,23 +590,23 @@ function useSkill(p, i) {
   switch (sk.id) {
     case 'dash':
       sfx('dash');
-      p.act = { type: 'dash', t: 0.22, hit: new Set(), mult: sk.mult };
+      p.act = { type: 'dash', t: 0.22, hit: new Set(), mult };
       p.invuln = Math.max(p.invuln, 0.3);
       p.vx = p.face * 950;
       p.vy = 0;
       burst(p.x, p.y - 30, color, 12, 160, { grav: 0, angle: p.face > 0 ? Math.PI : 0, spread: 0.4, glow: true });
       break;
     case 'slam':
-      p.act = p.onGround ? { type: 'slam', phase: 'wind', t: 0.16, mult: sk.mult } : { type: 'slam', phase: 'fall', t: 2, mult: sk.mult };
+      p.act = p.onGround ? { type: 'slam', phase: 'wind', t: 0.16, mult } : { type: 'slam', phase: 'fall', t: 2, mult };
       break;
     case 'whirl':
       sfx('slash3');
-      p.act = { type: 'whirl', t: 1.2, tick: 0, mult: sk.mult };
+      p.act = { type: 'whirl', t: 1.2 * (p.mods.whirlMul || 1), tick: 0, mult };
       break;
     case 'scatter': {
       sfx('shoot');
       const aim = autoAim(p, ox, oy, 260);
-      for (let k = 0; k < 7; k++) shot(ox, oy, aim + (k - 3) * 0.09, 760, { mult: sk.mult, life: 0.34, r: 6, color, knock: 160 });
+      for (let k = 0; k < 7; k++) shot(ox, oy, aim + (k - 3) * 0.09, 760, { mult, life: 0.34, r: 6, color, knock: 160 });
       if (p.onGround) {
         p.vx = -p.face * 260;
         p.vy = -260;
@@ -598,20 +618,20 @@ function useSkill(p, i) {
     }
     case 'grenade':
       sfx('jump');
-      shot(ox, oy - 6, p.face > 0 ? -0.75 : Math.PI + 0.75, 620, { mult: sk.mult, life: 1.6, r: 7, color: '#ffd060', grav: 1500, aoe: 125, pierce: 99 });
+      shot(ox, oy - 6, p.face > 0 ? -0.75 : Math.PI + 0.75, 620, { mult, life: 1.6, r: 7, color: '#ffd060', grav: 1500, aoe: 125 * (p.mods.aoeMul || 1), pierce: 99 });
       break;
     case 'overdrive':
-      p.act = { type: 'overdrive', t: 2, tick: 0, mult: sk.mult };
+      p.act = { type: 'overdrive', t: 2 * (p.mods.overdriveMul || 1), tick: 0, mult };
       break;
     case 'pierce':
       sfx('snipe');
-      shot(ox, oy, autoAim(p, ox, oy, 900), 2300, { mult: sk.mult, life: 0.4, r: 8, color, pierce: 99, knock: 200, trail: true });
+      shot(ox, oy, autoAim(p, ox, oy, 900), 2300, { mult, life: 0.4, r: 8, color, pierce: 99, knock: 200, trail: true });
       effect({ type: 'beam', x: ox, y: oy, face: p.face, color, dur: 0.25 });
       shake(6);
       break;
     case 'backstep':
       sfx('snipe');
-      shot(ox, oy, autoAim(p, ox, oy, 700), 1800, { mult: sk.mult, life: 0.45, r: 6, color, pierce: 2, knock: 220, trail: true });
+      shot(ox, oy, autoAim(p, ox, oy, 700), 1800, { mult, life: 0.45, r: 6, color, pierce: 2, knock: 220, trail: true });
       p.vx = -p.face * 420;
       p.vy = -460;
       p.onGround = false;
@@ -626,7 +646,7 @@ function useSkill(p, i) {
       sfx('warn');
       G.timers.push({ t: 0.75, fn: () => {
         for (const m of liveMobs()) {
-          if (Math.abs(m.x - tx) < 95 + m.w / 2 && m.y > ty - 420 && m.y - m.h < ty + 60) hitMob(p, m, sk.mult, { knock: 60, up: 300 });
+          if (Math.abs(m.x - tx) < 95 + m.w / 2 && m.y > ty - 420 && m.y - m.h < ty + 60) hitMob(p, m, mult, { knock: 60, up: 300 });
         }
         effect({ type: 'orbital', x: tx, y: ty, color, dur: 0.45 });
         sfx('explode');
@@ -637,23 +657,24 @@ function useSkill(p, i) {
     }
     case 'repair': {
       sfx('heal');
-      const heal = Math.round(p.maxHp * sk.heal);
+      const heal = Math.round(p.maxHp * sk.heal * (p.mods.healMul || 1));
       p.hp = Math.min(p.maxHp, p.hp + heal);
       addText(p.x, p.y - 80, '+' + heal, 'heal');
-      for (const m of liveMobs()) if (Math.abs(m.x - p.x) < 140 && Math.abs(m.y - p.y) < 120) hitMob(p, m, sk.mult, { knock: 200 });
+      for (const m of liveMobs()) if (Math.abs(m.x - p.x) < 140 && Math.abs(m.y - p.y) < 120) hitMob(p, m, mult, { knock: 200 });
       effect({ type: 'ring', x: p.x, y: p.y - 30, r: 140, color, dur: 0.45, round: true });
       burst(p.x, p.y - 30, color, 24, 240, { grav: -100, glow: true });
       break;
     }
     case 'barrier':
       sfx('shield');
-      p.shield = sk.dur;
+      p.shield = sk.dur + (p.mods.barrierAdd || 0);
       log('Barrier up: incoming damage is blocked.', 'skill');
       burst(p.x, p.y - 30, color, 20, 200, { grav: 0, glow: true });
       break;
     case 'swarm':
       sfx('swap');
-      for (let k = 0; k < 3; k++) G.drones.push({ x: p.x, y: p.y - 60, t: 0, life: 7, cd: 0.3 + k * 0.15, ph: (k * Math.PI * 2) / 3, mult: sk.mult });
+      const nd = p.mods.drones || 3;
+      for (let k = 0; k < nd; k++) G.drones.push({ x: p.x, y: p.y - 60, t: 0, life: 7, cd: 0.3 + k * 0.15, ph: (k * Math.PI * 2) / nd, mult });
       break;
   }
 }
@@ -742,7 +763,7 @@ export function swapStrike(p) {
     effect({ type: 'beam', x: ox, y: oy, face: p.face, color, dur: 0.2 });
     sfx('snipe');
   } else {
-    const heal = Math.round(p.maxHp * 0.06);
+    const heal = Math.round(p.maxHp * 0.06 * (p.mods.healMul || 1));
     p.hp = Math.min(p.maxHp, p.hp + heal);
     addText(p.x, p.y - 80, '+' + heal, 'heal');
     for (const m of liveMobs()) if (Math.abs(m.x - p.x) < 130 && Math.abs(m.y - p.y) < 110) hitMob(p, m, 1.0, { knock: 160 });
@@ -883,7 +904,8 @@ export function hurtPlayer(raw, fromX, attack = false) {
     return;
   }
   dismount(p);
-  const d = Math.max(1, Math.round(raw * rand(0.9, 1.1) - p.def));
+  const ward = p.buffs?.ward > 0 ? 0.75 : 1;
+  const d = Math.max(1, Math.round(raw * rand(0.9, 1.1) * ward - p.def));
   p.hp -= d;
   sfx('hurt');
   addText(p.x, p.y - p.h - 12, d, 'hurt');

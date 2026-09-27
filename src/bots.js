@@ -72,6 +72,7 @@ export function gainBotExp(n) {
       sfx('evolve');
       burst(p.botX ?? p.x, p.botY ?? p.y - 70, botColor(b), 40, 300, { grav: 0, glow: true });
       say('evolve', true);
+      if (stageOf(b) === 3 && !b.branch) G.hooks.branchChoice?.(b);
     }
   }
   if (b.lv >= BOT_MAX_LV) b.exp = 0;

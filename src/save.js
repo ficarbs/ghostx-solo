@@ -25,6 +25,7 @@ export function saveGame() {
     equip: p.equip, inv: p.inv, quests: p.quests, hp: p.dead ? 1 : p.hp, mp: p.mp,
     bots: p.bots, slots: p.slots, active: p.active, seen: p.seen, bestCombo: p.bestCombo,
     missions: p.missions, storyDone: p.storyDone, playTime: p.playTime,
+    enh: p.enh, style: p.style, owned: p.owned,
   };
   try {
     localStorage.setItem(KEY, JSON.stringify(data));
@@ -48,6 +49,9 @@ export function loadSave() {
       inv, quests: d.quests || {},
       bots: d.bots, slots: d.slots, active: d.active ?? 0, seen: d.seen || [], bestCombo: d.bestCombo || 0,
       missions: d.missions || {}, storyDone: !!d.storyDone, playTime: d.playTime || 0,
+      enh: { head: 0, body: 0, chip: 0, ...d.enh },
+      style: { hair: 'hair_black', jacket: 'jacket_gear', acc: 'acc_none', ...d.style },
+      owned: d.owned || ['hair_black', 'jacket_gear', 'acc_none'],
     };
     initRuntime(p);
     recalc(p);
