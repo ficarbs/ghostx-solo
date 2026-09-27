@@ -4,7 +4,7 @@ import { VIEW_W, VIEW_H, ITEMS, NPCS, BOTS } from './data.js';
 import { clamp } from './fx.js';
 import { itemIcon } from './icons.js';
 import { MELEE_TIME } from './player.js';
-import { elderMarker } from './quests.js';
+import { questMarker } from './quests.js';
 import { activeBot, botType, botColor, stageOf } from './bots.js';
 import { drawBot, drawWeapon } from './botart.js';
 import { crispen, silhouette } from './pixel.js';
@@ -740,8 +740,8 @@ function drawNpc(n, floor) {
   blit(spr, n.x, floor, facing);
 
   nameTag(NPCS[n.id].name, n.x, floor + 4, '#bfe6ff');
-  if (n.id === 'captain') {
-    const mk = elderMarker();
+  if (n.id === 'captain' || n.id === 'jin') {
+    const mk = questMarker(n.id);
     if (mk) {
       later(() => {
         ctx.font = '28px "Press Start 2P", monospace';
@@ -817,22 +817,6 @@ function drawDrop(d) {
     ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(6, 0); ctx.lineTo(0, 8); ctx.lineTo(-6, 0); ctx.closePath(); ctx.fill();
     ctx.fillStyle = '#e8feff'; ctx.fillRect(-1, -4, 2, 8);
     ctx.restore();
-  } else if (d.bot) {
-    const col = '#9af0ff';
-    const g = ctx.createRadialGradient(d.x, d.y - 14 + bob, 2, d.x, d.y - 14 + bob, 26);
-    g.addColorStop(0, 'rgba(160,240,255,0.7)');
-    g.addColorStop(1, 'rgba(160,240,255,0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(d.x - 28, d.y - 42 + bob, 56, 56);
-    ctx.save();
-    ctx.translate(d.x, d.y - 14 + bob);
-    ctx.rotate(G.time * 2);
-    ctx.strokeStyle = col;
-    ctx.lineWidth = 2;
-    ctx.strokeRect(-7, -7, 14, 14);
-    ctx.restore();
-    ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.arc(d.x, d.y - 14 + bob, 4, 0, PI * 2); ctx.fill();
   } else {
     const ic = itemIcon(d.id).canvas;
     if (ITEMS[d.id].rare) {

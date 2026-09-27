@@ -28,7 +28,6 @@ export const ITEMS = {
   cell_m: { name: 'Fusion Cell', type: 'use', icon: ['cell', '#8a5cff'], mp: 120, price: 90, desc: 'Recharges 120 EN.' },
   recall: { name: 'Recall Beacon', type: 'use', icon: ['beacon', '#6af0ff'], town: true, price: 60, desc: 'Teleports you back to Metro Central.' },
   hoverboard: { name: 'Hoverboard', type: 'key', icon: ['board', '#40e0ff'], lv: 5, price: 1500, desc: 'Press R to ride. Much faster, but you have to hop off to fight.' },
-  capsule: { name: 'Nano Capsule', type: 'use', icon: ['capsule', '#9af0ff'], capsule: true, price: 400, desc: 'Contains a random common nanobot.' },
 
   demon_horn: { name: 'Imp Horn', type: 'etc', icon: ['horn', '#d86a5a'], sell: 6, desc: 'Still hot from the rift.' },
   glitch_shard: { name: 'Glitch Shard', type: 'etc', icon: ['shard', '#ff5af0'], sell: 10, desc: 'A sliver of corrupted data. It flickers.' },
@@ -83,6 +82,16 @@ export const BOTS = {
   halo: { evo: ['Halo', 'Halo Prime', 'Archon'], type: 'medic', atk: 10, rarity: 3, persona: 'cheerful' },
 };
 export const BOT_ORDER = Object.keys(BOTS);
+export const STARTERS = ['kira', 'pip', 'lens', 'mote'];
+
+// Overclock: +1 star (+10% power) per level, paid in credits and demon loot. Index = current stars.
+export const OVERCLOCK = [
+  { gold: 150, items: [['demon_horn', 6]] },
+  { gold: 400, items: [['glitch_shard', 6]] },
+  { gold: 900, items: [['hound_fang', 6]] },
+  { gold: 1800, items: [['shade_residue', 6]] },
+  { gold: 3500, items: [['brute_plate', 6], ['sovereign_core', 1]] },
+];
 export const RARITY = ['', 'Common', 'Rare', 'Epic'];
 
 // Basic attack per type. rate = seconds between attacks.
@@ -166,26 +175,20 @@ export const RANKS = [
 export const COMBO_TIME = 3;
 
 // ---------- Monsters ----------
-// kind: walker (patrols a platform) | floater (hovers) | boss. bots: nanobot core drops [species, chance].
+// kind: walker (patrols a platform) | floater (hovers) | boss.
 export const MOBS = {
   imp: { name: 'Rift Imp', lv: 1, hp: 40, atk: 11, def: 0, exp: 10, speed: 55, w: 34, h: 40, kind: 'walker', aggro: 0, gold: [3, 8],
-    drops: [['demon_horn', 0.5], ['med_s', 0.12], ['focus_chip', 0.01]],
-    bots: [['kira', 0.006], ['pip', 0.006], ['lens', 0.006], ['mote', 0.006]] },
+    drops: [['demon_horn', 0.5], ['med_s', 0.12], ['focus_chip', 0.01]] },
   wisp: { name: 'Glitch Wisp', lv: 3, hp: 62, atk: 16, def: 1, exp: 18, speed: 50, w: 30, h: 34, kind: 'floater', aggro: 220, gold: [5, 12],
-    drops: [['glitch_shard', 0.55], ['cell_s', 0.15], ['focus_chip', 0.02]],
-    bots: [['kira', 0.01], ['pip', 0.01], ['lens', 0.01], ['mote', 0.01]] },
+    drops: [['glitch_shard', 0.55], ['cell_s', 0.15], ['focus_chip', 0.02]] },
   hound: { name: 'Hellhound', lv: 5, hp: 160, atk: 27, def: 3, exp: 42, speed: 80, w: 66, h: 40, kind: 'walker', aggro: 300, charge: true, gold: [10, 22],
-    drops: [['hound_fang', 0.45], ['med_s', 0.2], ['kevlar', 0.03], ['tac_visor', 0.02]],
-    bots: [['razor', 0.012], ['boomer', 0.012], ['volt', 0.012], ['aegis', 0.012]] },
+    drops: [['hound_fang', 0.45], ['med_s', 0.2], ['kevlar', 0.03], ['tac_visor', 0.02]] },
   specter: { name: 'Shade Specter', lv: 7, hp: 250, atk: 37, def: 5, exp: 70, speed: 55, w: 34, h: 62, kind: 'floater', aggro: 340, shoots: true, gold: [15, 30],
-    drops: [['shade_residue', 0.45], ['med_m', 0.08], ['cell_m', 0.05], ['reflex_chip', 0.015]],
-    bots: [['razor', 0.015], ['boomer', 0.015], ['volt', 0.015], ['aegis', 0.015]] },
+    drops: [['shade_residue', 0.45], ['med_m', 0.08], ['cell_m', 0.05], ['reflex_chip', 0.015]] },
   brute: { name: 'Iron Brute', lv: 9, hp: 500, atk: 50, def: 10, exp: 120, speed: 38, w: 72, h: 60, kind: 'walker', aggro: 180, gold: [25, 45],
-    drops: [['brute_plate', 0.5], ['med_m', 0.12], ['rift_plate', 0.02], ['combat_helm', 0.02]],
-    bots: [['oni', 0.006], ['havoc', 0.006], ['nyx', 0.006], ['halo', 0.006]] },
+    drops: [['brute_plate', 0.5], ['med_m', 0.12], ['rift_plate', 0.02], ['combat_helm', 0.02]] },
   sovereign: { name: 'Rift Sovereign', lv: 12, hp: 14000, atk: 64, def: 12, exp: 1500, speed: 90, w: 130, h: 110, kind: 'boss', aggro: 9999, gold: [800, 1200],
-    drops: [['sovereign_core', 1], ['med_m', 1], ['sovereign_crown', 0.35], ['sovereign_chip', 0.3]],
-    bots: [['oni', 0.25], ['havoc', 0.25], ['nyx', 0.25], ['halo', 0.25]] },
+    drops: [['sovereign_core', 1], ['med_m', 1], ['sovereign_crown', 0.35], ['sovereign_chip', 0.3]] },
 };
 
 // ---------- Maps ----------
@@ -278,11 +281,11 @@ export const MAPS = {
 
 export const NPCS = {
   captain: { name: 'Captain Yoon', role: 'quest', greet: 'Rifts are tearing open all over the city. GhostX needs every hunter we\'ve got. That means you.' },
-  mina: { name: 'Dr. Mina', role: 'shop', shop: ['med_s', 'med_m', 'cell_s', 'cell_m', 'recall', 'capsule'],
-    greet: 'Med packs, energy cells, recall beacons. And capsules, if you\'re feeling lucky.' },
+  mina: { name: 'Dr. Mina', role: 'shop', shop: ['med_s', 'med_m', 'cell_s', 'cell_m', 'recall'],
+    greet: 'Med packs, energy cells, recall beacons. Stay in one piece out there.' },
   terminal: { name: 'Mission Terminal', role: 'missions', greet: 'GHOSTX TACTICAL NETWORK · Select an operation.' },
   jin: { name: 'Tech Jin', role: 'shop', lab: true, shop: ['hoverboard', 'kevlar', 'nano_jacket', 'street_cap', 'tac_visor', 'combat_helm'],
-    greet: 'Gear\'s on the rack. Bring me duplicate nanobots and I can fuse them into something stronger.' },
+    greet: 'Gear\'s on the rack, and the lab can overclock your nanobots. Want a new partner? Finish a requisition for me and I\'ll build one.' },
 };
 
 // Instanced wave missions from the Mission Terminal. Groups: [mobType, count, 'elite'|'ex'?].
@@ -291,23 +294,23 @@ export const MISSIONS = [
   { id: 'm1', name: 'Alley Outbreak', lv: 2, arena: 'arena_alley', par: 70,
     desc: 'Imps and glitch wisps are pouring out of a fresh tear. Hold the alley for three waves.',
     waves: [[['imp', 6]], [['imp', 4], ['wisp', 3]], [['wisp', 4], ['imp', 3], ['imp', 1, 'elite']]],
-    reward: { exp: 110, gold: 200, bots: [['kira', 0.12], ['pip', 0.12], ['lens', 0.12], ['mote', 0.12]] } },
+    reward: { exp: 110, gold: 200 } },
   { id: 'm2', name: 'Depot Lockdown', lv: 5, arena: 'arena_subway', par: 85,
     desc: 'A hellhound pack has the depot sealed. Break the lockdown.',
     waves: [[['hound', 4]], [['hound', 3], ['wisp', 4]], [['hound', 4], ['hound', 1, 'elite']]],
-    reward: { exp: 400, gold: 450, items: [['capsule', 0.3]], bots: [['razor', 0.08], ['boomer', 0.08], ['volt', 0.08], ['aegis', 0.08]] } },
+    reward: { exp: 400, gold: 450, items: [['cell_m', 0.5]] } },
   { id: 'm3', name: 'Rooftop Siege', lv: 8, arena: 'arena_rooftop', par: 100,
     desc: 'Specters and brutes are massing on the skyline. Hit them before they move.',
     waves: [[['specter', 4]], [['brute', 2], ['specter', 3]], [['specter', 4], ['brute', 1, 'elite']]],
-    reward: { exp: 1200, gold: 950, items: [['med_m', 1]], bots: [['razor', 0.1], ['boomer', 0.1], ['volt', 0.1], ['aegis', 0.1], ['oni', 0.03], ['havoc', 0.03], ['nyx', 0.03], ['halo', 0.03]] } },
+    reward: { exp: 1200, gold: 950, items: [['med_m', 1]] } },
   { id: 'm4', name: 'Rift Breach', lv: 12, post: true, arena: 'arena_rift', par: 130,
     desc: 'Aftershocks from the core. Every demon type, elites included, in four waves.',
     waves: [[['imp', 4, 'elite'], ['wisp', 4]], [['hound', 4], ['specter', 3]], [['brute', 3], ['specter', 3, 'elite']], [['hound', 2, 'elite'], ['brute', 2, 'elite']]],
-    reward: { exp: 3500, gold: 2400, items: [['capsule', 1]], bots: [['oni', 0.1], ['havoc', 0.1], ['nyx', 0.1], ['halo', 0.1]] } },
+    reward: { exp: 3500, gold: 2400, items: [['med_m', 1], ['cell_m', 1]] } },
   { id: 'm5', name: 'Sovereign EX', lv: 18, post: true, arena: 'arena_rift', par: 180,
     desc: 'The Sovereign has reformed, stronger than before. Only the best hunters return from this.',
     waves: [[['sovereign', 1, 'ex']]],
-    reward: { exp: 10000, gold: 7000, items: [['sovereign_crown', 0.5], ['sovereign_chip', 0.5]], bots: [['oni', 0.4], ['havoc', 0.4], ['nyx', 0.4], ['halo', 0.4]] } },
+    reward: { exp: 10000, gold: 7000, items: [['sovereign_crown', 0.5], ['sovereign_chip', 0.5]] } },
 ];
 
 export const GRADES = [
@@ -317,26 +320,65 @@ export const GRADES = [
   { name: 'C', score: 0, mult: 0.8, color: '#9aa0b0' },
 ];
 
+// Nanobot requisitions from Tech Jin: the only way to get new nanobots. One active at a time, one bot each.
+// goal.mission = { id, grade } requires clearing that Mission Terminal operation at that grade or better.
+// reward.pick = the species offered; you choose one you don't own yet.
+export const BOT_QUESTS = [
+  { id: 'n1', name: 'Field Test', lv: 2, goal: { kill: { imp: 8 } }, reward: { exp: 60, gold: 80, pick: ['kira', 'pip', 'lens', 'mote'] },
+    offer: 'I\'ve got frames for the other starter bots, but I need combat data to calibrate them. Take down eight rift imps.',
+    progress: 'Rift imps crawl around Neon Alley.', done: 'Good data. Pick a frame and I\'ll boot it up.' },
+  { id: 'n2', name: 'Signal Hunt', lv: 4, goal: { collect: { glitch_shard: 6 } }, reward: { exp: 150, gold: 150, pick: ['kira', 'pip', 'lens', 'mote'] },
+    offer: 'Glitch shards make great core buffers. Bring me six and I\'ll build you another one.',
+    progress: 'Glitch wisps drop shards in Neon Alley and Line 9.', done: 'These will do. Which one do you want?' },
+  { id: 'n3', name: 'Hound Parts', lv: 5, goal: { kill: { hound: 6 }, collect: { hound_fang: 4 } }, reward: { exp: 350, gold: 300, pick: ['razor', 'boomer', 'volt', 'aegis'] },
+    offer: 'Hellhound fangs conduct rift energy. That means rare-grade frames. Six hounds, four fangs.',
+    progress: 'Hellhounds prowl the Line 9 Depot.', done: 'Rare-grade parts. Choose your build.' },
+  { id: 'n4', name: 'Depot Lockdown Data', lv: 6, goal: { mission: { id: 'm2', grade: 'B' } }, reward: { exp: 400, gold: 400, pick: ['razor', 'boomer', 'volt', 'aegis'] },
+    offer: 'Run Depot Lockdown from the Mission Terminal and clear it with a B or better. I\'ll record the telemetry.',
+    progress: 'Mission Terminal · Depot Lockdown · grade B or better.', done: 'Clean telemetry. Pick one.' },
+  { id: 'n5', name: 'Shade Samples', lv: 7, goal: { collect: { shade_residue: 6 } }, reward: { exp: 700, gold: 600, pick: ['kira', 'pip', 'lens', 'mote', 'razor', 'boomer', 'volt', 'aegis'] },
+    offer: 'Shade residue stabilizes nano-cores. Six vials, please.',
+    progress: 'Shade specters haunt the Skyline Rooftops.', done: 'Stable cores. Any frame you like.' },
+  { id: 'n6', name: 'Brute Force', lv: 9, goal: { kill: { brute: 6 } }, reward: { exp: 1100, gold: 900, pick: ['razor', 'boomer', 'volt', 'aegis'] },
+    offer: 'Iron brutes have the densest plating in the city. Put down six.',
+    progress: 'Iron brutes guard the rooftop floors.', done: 'Heavy-duty. Choose.' },
+  { id: 'n7', name: 'Siege Protocol', lv: 11, goal: { mission: { id: 'm3', grade: 'A' } }, reward: { exp: 1800, gold: 1500, pick: ['oni', 'havoc', 'nyx', 'halo'] },
+    offer: 'Epic-grade frames need elite telemetry. Clear Rooftop Siege with an A or better.',
+    progress: 'Mission Terminal · Rooftop Siege · grade A or better.', done: 'Epic grade. You earned this one.' },
+  { id: 'n8', name: 'The Core', lv: 12, goal: { collect: { sovereign_core: 1 } }, reward: { exp: 2500, gold: 2000, pick: ['oni', 'havoc', 'nyx', 'halo'] },
+    offer: 'Bring me the Sovereign\'s core. I want to build something with it.',
+    progress: 'The Rift Sovereign waits in the Rift Core.', done: 'It\'s still beating. Pick your epic.' },
+  { id: 'n9', name: 'Breach Protocol', lv: 16, goal: { mission: { id: 'm4' } }, reward: { exp: 5000, gold: 3000, pick: ['oni', 'havoc', 'nyx', 'halo'] },
+    offer: 'Clear Rift Breach. Any grade. I just need to know it can be done.',
+    progress: 'Mission Terminal · Rift Breach.', done: 'You survived it. Choose.' },
+  { id: 'n10', name: 'Sovereign Echo', lv: 20, goal: { mission: { id: 'm5' } }, reward: { exp: 9000, gold: 6000, pick: BOT_ORDER },
+    offer: 'Sovereign EX. Beat it and I\'ll build whatever you want.',
+    progress: 'Mission Terminal · Sovereign EX.', done: 'Unbelievable. Anything you want.' },
+  { id: 'n11', name: 'Perfect Record', lv: 22, goal: { mission: { id: 'm4', grade: 'S' } }, reward: { exp: 12000, gold: 8000, pick: BOT_ORDER },
+    offer: 'Last frame I\'ve got. Earn an S on Rift Breach.',
+    progress: 'Mission Terminal · Rift Breach · grade S.', done: 'Flawless. The last frame is yours.' },
+];
+
 // Quests chain from Captain Yoon. goal.kill counts kills after accepting; goal.collect checks inventory.
 export const QUESTS = [
   { id: 'q1', name: 'Street Sweep', lv: 1,
     goal: { kill: { imp: 10 } },
-    reward: { exp: 90, gold: 120, items: [['street_cap', 1], ['med_s', 10]], bots: ['lens'] },
+    reward: { exp: 90, gold: 120, items: [['street_cap', 1], ['med_s', 10]] },
     offer: 'Rift imps are crawling out of the dumpsters in Neon Alley. Clear out ten of them. Take the east gate.',
     progress: 'Neon Alley is through the east gate of Metro Central.',
-    done: 'Clean work. HQ is issuing you a sniper-type nanobot, Lens. Swap to it with 1/2/3 and try hitting things from far away.' },
+    done: 'Clean work. Tech Jin has requisition orders for new nanobots. Talk to him when you want another partner.' },
   { id: 'q2', name: 'Glitch in the System', lv: 3,
     goal: { collect: { glitch_shard: 8 } },
-    reward: { exp: 200, gold: 200, items: [['cell_s', 10]], bots: ['mote'] },
+    reward: { exp: 200, gold: 200, items: [['cell_s', 10], ['focus_chip', 1]] },
     offer: 'Those flickering wisps are corrupting the city grid. Bring me eight glitch shards so the lab can study them.',
     progress: 'Glitch wisps drift above the fire escapes in Neon Alley.',
-    done: 'Perfect samples. Here, Dr. Mina built a medic nanobot called Mote. It heals you while it fights.' },
+    done: 'Perfect samples. The lab put together a focus chip for you. Slot it in.' },
   { id: 'q3', name: 'Hounds Below', lv: 5,
     goal: { kill: { hound: 8 }, collect: { hound_fang: 5 } },
-    reward: { exp: 500, gold: 450, items: [['med_m', 10], ['capsule', 1]] },
+    reward: { exp: 500, gold: 450, items: [['med_m', 10], ['cell_m', 5]] },
     offer: 'Hellhounds have nested in the Line 9 subway depot. Put down eight and bring five fangs as proof.',
     progress: 'Line 9 Depot is past Neon Alley. Watch for their charge.',
-    done: 'Five fangs. The trains can run again. Take a nano capsule. You\'ve earned it.' },
+    done: 'Five fangs. The trains can run again. Take these elixirs. You\'ve earned them.' },
   { id: 'q4', name: 'Rooftop Purge', lv: 7,
     goal: { kill: { specter: 12, brute: 5 } },
     reward: { exp: 1300, gold: 900, items: [['reflex_chip', 1]] },

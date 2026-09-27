@@ -1,10 +1,11 @@
 // Demons, the Rift Sovereign boss, projectiles, and ground loot.
 import { G } from './state.js';
-import { MOBS, ITEMS, GRAVITY, QUESTS, CURRENCY, RANKS } from './data.js';
+import { MOBS, ITEMS, GRAVITY, CURRENCY, RANKS } from './data.js';
 import { addText, burst, shake, log, effect, banner, rand, randi, clamp } from './fx.js';
 import { hurtPlayer, gainExp, physics, bodyBox, overlaps, registerHit } from './player.js';
 import { addItem } from './items.js';
-import { addBot, gainBotExp, say } from './bots.js';
+import { gainBotExp, say } from './bots.js';
+import { onKill } from './quests.js';
 import { sfx } from './audio.js';
 
 let uid = 0;
@@ -76,16 +77,7 @@ function killMob(m) {
   dropLoot(m);
   burst(m.x, m.y - m.h / 2, m.type === 'wisp' ? '#ff5af0' : '#ff8a6a', 18, 220, { grav: -60, glow: true });
   if (Math.random() < 0.25) say('kill');
-  for (const q of QUESTS) {
-    const st = p.quests[q.id];
-    if (st && st.status === 'active' && q.goal.kill && q.goal.kill[m.type] !== undefined) {
-      st.kills[m.type] = (st.kills[m.type] || 0) + 1;
-      if (st.kills[m.type] <= q.goal.kill[m.type]) {
-        log(`${q.name}: ${m.d.name} ${st.kills[m.type]}/${q.goal.kill[m.type]}`, 'quest');
-      }
-      G.dirty = true;
-    }
-  }
+  onKill(m.type);
   if (m.d.kind === 'boss') {
     G.boss = null;
     shake(20);
@@ -108,15 +100,6 @@ function dropLoot(m) {
   for (const [id, chance] of m.d.drops) {
     if (Math.random() < chance * m.dropMul) G.drops.push(makeDrop(m, { id }));
   }
-  // Nanobot cores. The boss always drops exactly one, picked at random from its table.
-  const table = m.d.bots || [];
-  if (m.d.kind === 'boss' && table.length) {
-    G.drops.push(makeDrop(m, { bot: table[Math.floor(Math.random() * table.length)][0] }));
-  } else {
-    for (const [sp, chance] of table) {
-      if (Math.random() < chance * m.dropMul) G.drops.push(makeDrop(m, { bot: sp }));
-    }
-  }
 }
 
 function makeDrop(m, o) {
@@ -138,12 +121,6 @@ export function updateDrops(dt) {
         addText(d.x, d.y - 20, `+${d.gold} ${CURRENCY}`, 'gold');
         d.taken = true;
         G.dirty = true;
-      } else if (d.bot) {
-        if (addBot(d.bot)) {
-          sfx('core');
-          d.taken = true;
-          burst(d.x, d.y, '#9af0ff', 24, 260, { grav: -50, glow: true });
-        }
       } else if (addItem(d.id, 1)) {
         const it = ITEMS[d.id];
         sfx('pickup');

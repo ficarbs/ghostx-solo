@@ -1,9 +1,10 @@
 // Instanced wave missions: launch, wave spawning, grading, rewards, and records.
 import { G } from './state.js';
-import { MISSIONS, GRADES, MOBS, ITEMS, BOTS, CURRENCY } from './data.js';
+import { MISSIONS, GRADES, MOBS, ITEMS, CURRENCY } from './data.js';
 import { spawnMob } from './mobs.js';
 import { gainExp } from './player.js';
-import { addBot, gainBotExp } from './bots.js';
+import { gainBotExp } from './bots.js';
+import { onMissionClear } from './quests.js';
 import { addItem } from './items.js';
 import { banner, log, burst, rand } from './fx.js';
 import { sfx } from './audio.js';
@@ -107,13 +108,11 @@ function finish(M) {
   for (const [id, chance] of r.items || []) {
     if (Math.random() < chance * g.mult && addItem(id, 1)) got.push(ITEMS[id].name);
   }
-  for (const [sp, chance] of r.bots || []) {
-    if (Math.random() < chance * g.mult && addBot(sp)) got.push(`${BOTS[sp].evo[0]} (nanobot)`);
-  }
   const rec = (p.missions[M.def.id] ||= { best: null, clears: 0, bestTime: null });
   rec.clears++;
   if (!rec.best || GRADES.findIndex((x) => x.name === g.name) < GRADES.findIndex((x) => x.name === rec.best)) rec.best = g.name;
   if (rec.bestTime == null || M.t < rec.bestTime) rec.bestTime = Math.round(M.t * 10) / 10;
+  onMissionClear(M.def.id, g.name);
 
   // Exit gate appears in the middle of the arena.
   G.map.portals.push({ id: 'exit', x: G.map.w / 2, to: 'plaza', tp: 'spawn' });

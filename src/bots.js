@@ -1,6 +1,7 @@
-// Nanobots: collection, active slot, leveling/evolution, fusion, and companion chatter.
+// Nanobots: collection, active slot, leveling/evolution, overclocking, and companion chatter.
 import { G } from './state.js';
-import { BOTS, BOT_TYPES, BOT_SKILLS, PERSONA, BOT_CAP, BOT_MAX_LV, RARITY, CURRENCY, botExpNeed } from './data.js';
+import { BOTS, BOT_TYPES, BOT_SKILLS, PERSONA, BOT_MAX_LV, RARITY, OVERCLOCK, botExpNeed } from './data.js';
+import { countItem, removeItem } from './items.js';
 import { log, banner, burst, effect } from './fx.js';
 import { recalc } from './player.js';
 import { sfx } from './audio.js';
@@ -36,10 +37,6 @@ export function newBot(p, sp) {
 
 export function addBot(sp) {
   const p = G.player;
-  if (p.bots.length >= BOT_CAP) {
-    log('Nanobot storage is full. Fuse or release some at Tech Jin\'s lab.', 'warn');
-    return null;
-  }
   const b = newBot(p, sp);
   p.bots.push(b);
   if (!p.seen.includes(sp)) p.seen.push(sp);
@@ -48,6 +45,7 @@ export function addBot(sp) {
   const s = BOTS[sp];
   log(`New nanobot: ${s.evo[0]} (${RARITY[s.rarity]} ${BOT_TYPES[s.type].name})${empty >= 0 ? ` · slotted into [${empty + 1}]` : ' · equip it with N'}`, 'rare');
   banner('NANOBOT ACQUIRED', `${s.evo[0]} · ${RARITY[s.rarity]} ${BOT_TYPES[s.type].name}`);
+  sfx('core');
   G.dirty = true;
   return b;
 }
@@ -120,51 +118,31 @@ export function unslot(slot) {
   G.dirty = true;
 }
 
-export const fuseCost = (b) => 100 * BOTS[b.sp].rarity * (b.stars + 1);
+// Overclock: +1 star (+10% power), paid in credits and demon loot (see OVERCLOCK in data.js).
+export const overclockCost = (b) => (b.stars < OVERCLOCK.length ? OVERCLOCK[b.stars] : null);
 
-// Fuse a duplicate of the same species into `target`: +1 star (max 5), keeps the higher level.
-export function fuse(targetUid, fodderUid) {
+export function canOverclock(b) {
+  const c = overclockCost(b);
+  return !!c && G.player.gold >= c.gold && c.items.every(([id, n]) => countItem(id) >= n);
+}
+
+export function overclock(uid) {
   const p = G.player;
-  const t = botByUid(targetUid), f = botByUid(fodderUid);
-  if (!t || !f || t === f || t.sp !== f.sp) return false;
-  if (t.stars >= 5) return log(`${botName(t)} is already at 5 stars.`, 'warn'), false;
-  const cost = fuseCost(t);
-  if (p.gold < cost) return log(`Fusion costs ${cost} ${CURRENCY}.`, 'warn'), false;
-  p.gold -= cost;
-  t.stars++;
-  if (f.lv > t.lv) {
-    t.lv = f.lv;
-    t.exp = f.exp;
-  }
-  removeBot(f.uid);
-  log(`Fusion complete: ${botName(t)} is now ${'★'.repeat(t.stars)}.`, 'lvl');
+  const b = botByUid(uid);
+  if (!b) return false;
+  const c = overclockCost(b);
+  if (!c) return log(`${botName(b)} is already at 5 stars.`, 'warn'), false;
+  if (!canOverclock(b)) return log('Not enough credits or materials to overclock.', 'warn'), false;
+  p.gold -= c.gold;
+  for (const [id, n] of c.items) removeItem(id, n);
+  b.stars++;
   sfx('evolve');
-  banner('FUSION COMPLETE', `${botName(t)} ${'★'.repeat(t.stars)}`);
+  log(`Overclock complete: ${botName(b)} is now ${'★'.repeat(b.stars)}.`, 'lvl');
+  banner('OVERCLOCKED', `${botName(b)} ${'★'.repeat(b.stars)}`);
   recalc(p);
   G.dirty = true;
+  G.hooks.save?.();
   return true;
-}
-
-export function release(uid) {
-  const p = G.player;
-  if (p.slots.includes(uid)) return log('Unequip that nanobot before releasing it.', 'warn');
-  const b = botByUid(uid);
-  if (!b) return;
-  const v = 25 * BOTS[b.sp].rarity * (1 + b.stars);
-  removeBot(uid);
-  p.gold += v;
-  log(`Released ${botName(b)} for ${v} ${CURRENCY} of scrap.`, 'loot');
-  G.dirty = true;
-}
-
-function removeBot(uid) {
-  const p = G.player;
-  p.bots = p.bots.filter((b) => b.uid !== uid);
-  const si = p.slots.indexOf(uid);
-  if (si >= 0) {
-    p.slots[si] = null;
-    if (p.active === si) p.active = p.slots.findIndex((s) => s != null);
-  }
 }
 
 // Companion speech bubble. kind: swap | kill | low | evolve | combo | idle

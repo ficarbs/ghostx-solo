@@ -1,12 +1,12 @@
 // DOM overlay UI: HUD, combo meter, minimap, chat log, windows (inventory, character, nanobots, quests, shop, help), dialogs.
 import { G } from './state.js';
-import { setViewWidth, ITEMS, NPCS, QUESTS, CURRENCY, VIEW_W, VIEW_H, BOTS, BOT_TYPES, BOT_TYPE_ORDER, BOT_ORDER, BOT_SKILLS, BOT_BASIC, BOT_CAP, BOT_MAX_LV, RARITY, RANKS, COMBO_TIME, expNeed, botExpNeed, sellPrice } from './data.js';
+import { setViewWidth, ITEMS, NPCS, QUESTS, CURRENCY, VIEW_W, VIEW_H, BOTS, BOT_TYPES, BOT_TYPE_ORDER, BOT_ORDER, BOT_SKILLS, BOT_BASIC, BOT_MAX_LV, STARTERS, RARITY, RANKS, COMBO_TIME, expNeed, botExpNeed, sellPrice } from './data.js';
 import * as input from './input.js';
 import { itemIcon, skillIcon, botIcon } from './icons.js';
 import { useSlot, unequip, addItem, canAdd, countItem, quickPotion } from './items.js';
 import { recalc, revive } from './player.js';
-import { activeBot, botByUid, botName, botType, botColor, botPower, stageOf, botSkills, equipBot, unslot, swapTo, fuse, fuseCost, release, STAGE_LV } from './bots.js';
-import { currentQuest, questState, questReady, goalRows, acceptQuest, completeQuest } from './quests.js';
+import { activeBot, botByUid, botName, botType, botColor, botPower, stageOf, botSkills, equipBot, unslot, swapTo, overclock, overclockCost, canOverclock, STAGE_LV } from './bots.js';
+import { CHAINS, currentQuest, questState, questReady, questMarker, goalRows, acceptQuest, completeQuest, pickOptions } from './quests.js';
 import { log as fxLog } from './fx.js';
 import { MISSIONS, GRADES } from './data.js';
 import { startMission, missionLocked, remaining, fmtTime } from './missions.js';
@@ -24,7 +24,7 @@ const WINDOWS = {
   inv: { title: 'Inventory', x: 700, y: 60, w: 244 },
   char: { title: 'Character', x: 12, y: 112, w: 250 },
   bots: { title: 'Nanobots', x: 230, y: 40, w: 460 },
-  quests: { title: 'Story Log', x: 290, y: 90, w: 330 },
+  quests: { title: 'Quest Log', x: 290, y: 90, w: 330 },
   shop: { title: 'Shop', x: 150, y: 50, w: 300 },
   help: { title: 'How to Play', x: 250, y: 40, w: 460 },
   missions: { title: 'Mission Terminal', x: 220, y: 40, w: 480 },
@@ -103,11 +103,7 @@ export function initUI({ onNew, onContinue, hasSave }) {
   const nameInput = $('#title-name');
   $('#btn-new').addEventListener('click', () => {
     const name = nameInput.value.trim().slice(0, 12) || 'Hunter';
-    const begin = () => {
-      els.title.classList.add('hidden');
-      onNew(name);
-      showWin('help');
-    };
+    const begin = () => showStarterPick(name, onNew);
     if (hasSave()) askConfirm('Start a new game? Your current save will be overwritten.', 'Start over', begin);
     else begin();
   });
@@ -204,7 +200,7 @@ export function frameUI(dt) {
     $('#hud-gold').textContent = `${p.gold.toLocaleString()} ${CURRENCY}`;
     updateSlots();
     $('#hud-menu [data-win="char"]').classList.toggle('alert', p.statPts > 0);
-    $('#hud-menu [data-win="quests"]').classList.toggle('alert', !!currentQuest() && questReady(currentQuest()));
+    $('#hud-menu [data-win="quests"]').classList.toggle('alert', questMarker('captain') === '?' || questMarker('jin') === '?');
   }
   updateCooldowns();
   updateCombo();
@@ -473,7 +469,7 @@ const stars = (b) => (b.stars ? `<span class="stars">${'★'.repeat(b.stars)}</s
 
 function botsHTML() {
   const p = G.player;
-  const tabs = `<div class="tabs"><button class="${botTab === 'owned' ? 'on' : ''}" data-btab="owned">Collection (${p.bots.length}/${BOT_CAP})</button><button class="${botTab === 'dex' ? 'on' : ''}" data-btab="dex">Nanodex (${p.seen.length}/${BOT_ORDER.length})</button>${labMode ? `<span class="gold">${p.gold.toLocaleString()} ${CURRENCY}</span>` : ''}</div>`;
+  const tabs = `<div class="tabs"><button class="${botTab === 'owned' ? 'on' : ''}" data-btab="owned">Collection (${p.bots.length})</button><button class="${botTab === 'dex' ? 'on' : ''}" data-btab="dex">Nanodex (${p.seen.length}/${BOT_ORDER.length})</button>${labMode ? `<span class="gold">${p.gold.toLocaleString()} ${CURRENCY}</span>` : ''}</div>`;
   const equipped = `<div class="bot-slots">${p.slots.map((uid, i) => {
     const b = uid != null ? botByUid(uid) : null;
     return `<div class="bot-slot ${i === p.active ? 'on' : ''}" ${b ? `data-bot="${b.uid}" style="--c:${botColor(b)}"` : ''}>
@@ -488,14 +484,14 @@ function botsHTML() {
       return `<div class="dex-card ${seen ? '' : 'unseen'}" style="--c:${BOT_TYPES[s.type].color}">
         <img src="${botIcon(sp, seen ? 3 : 1, !seen).url}" alt="">
         <div><b>${seen ? esc(s.evo.join(' → ')) : '???'}</b><br><small class="dim">${RARITY[s.rarity]} ${BOT_TYPES[s.type].name}${seen ? ` · ${s.persona}` : ''}</small></div></div>`;
-    }).join('')}</div><div class="hint">Nanobot cores drop from demons. Rarer cores come from tougher demons. Capsules are sold by Dr. Mina.</div>`;
+    }).join('')}</div><div class="hint">New nanobots come only from Tech Jin's requisitions: one per requisition, and you choose which.</div>`;
   }
 
   const sorted = [...p.bots].sort((a, b) => BOT_TYPE_ORDER.indexOf(botType(a)) - BOT_TYPE_ORDER.indexOf(botType(b)) || b.lv - a.lv);
   const cards = sorted.map((b) => {
     const s = BOTS[b.sp];
     const slotted = p.slots.indexOf(b.uid);
-    const dupes = p.bots.filter((o) => o !== b && o.sp === b.sp && !p.slots.includes(o.uid));
+    const oc = overclockCost(b);
     const expPct = b.lv >= BOT_MAX_LV ? 100 : (b.exp / botExpNeed(b.lv)) * 100;
     const nextEvo = STAGE_LV.find((l) => l > b.lv);
     return `<div class="bot-card" style="--c:${botColor(b)}" data-bot="${b.uid}">
@@ -507,32 +503,37 @@ function botsHTML() {
       </div>
       <div class="bot-actions">
         ${slotted >= 0 ? `<span class="tag">Slot ${slotted + 1}</span>` : [0, 1, 2].map((i) => `<button data-equipbot="${b.uid}" data-to="${i}">${i + 1}</button>`).join('')}
-        ${labMode && dupes.length && b.stars < 5 ? `<button class="primary" data-fuse="${b.uid}" data-with="${dupes[0].uid}" ${p.gold < fuseCost(b) ? 'disabled' : ''}>Fuse ${fuseCost(b)}</button>` : ''}
-        ${labMode && slotted < 0 ? `<button data-release="${b.uid}">Scrap</button>` : ''}
+        ${labMode && oc ? `<button class="primary" data-overclock="${b.uid}" ${canOverclock(b) ? '' : 'disabled'} title="${oc.gold} ${CURRENCY} + ${oc.items.map(([id, n]) => `${n}× ${ITEMS[id].name}`).join(' + ')}">Overclock ★${b.stars + 1}</button>` : ''}
       </div>
     </div>`;
   }).join('');
   return tabs + equipped + `<div class="bot-list">${cards}</div>
-    <div class="hint">${labMode ? 'Fuse a duplicate of the same species into a bot for +1★ (+10% power, max 5★).' : 'Click 1/2/3 on a bot to put it in that slot. Fuse duplicates at Tech Jin\'s Nano Lab.'}</div>`;
+    <div class="hint">${labMode ? overclockHint() : 'Click 1/2/3 on a bot to put it in that slot. Overclock bots at Tech Jin\'s Nano Lab.'}</div>`;
 }
 
 function questsHTML() {
   const p = G.player;
-  const active = QUESTS.filter((q) => p.quests[q.id]?.status === 'active');
-  const done = QUESTS.filter((q) => p.quests[q.id]?.status === 'done');
-  const cur = currentQuest();
-  let html = '';
-  if (!active.length) {
-    html += `<div class="dim q-empty">${cur ? (p.lv >= cur.lv ? 'Captain Yoon at GhostX HQ has a mission for you.' : `Reach level ${cur.lv} for your next mission from Captain Yoon.`) : 'All missions complete. The city is safe.'}</div>`;
-  }
-  for (const q of active) {
-    const ready = questReady(q);
-    html += `<div class="quest"><div class="q-name">${esc(q.name)} ${ready ? '<span class="ready">Ready to turn in</span>' : ''}</div>
-      ${goalRows(q).map((r) => `<div class="q-row ${r.have >= r.need ? 'ok' : ''}"><span>${esc(r.label)}</span><b>${r.have} / ${r.need}</b></div>`).join('')}
-      <div class="dim">${esc(ready ? 'Return to Captain Yoon.' : q.progress)}</div></div>`;
-  }
-  if (done.length) html += `<div class="q-done">Completed: ${done.map((q) => esc(q.name)).join(' · ')}</div>`;
-  return html;
+  const section = (giver, title, doneText) => {
+    const chain = CHAINS[giver];
+    const active = chain.filter((q) => p.quests[q.id]?.status === 'active');
+    const done = chain.filter((q) => p.quests[q.id]?.status === 'done');
+    const cur = currentQuest(giver);
+    const who = NPCS[giver].name;
+    let html = `<div class="q-head">${title}</div>`;
+    if (!active.length) {
+      html += `<div class="dim q-empty">${cur ? (p.lv >= cur.lv ? `${who} has a new task for you.` : `Reach level ${cur.lv} for ${who}'s next task.`) : doneText}</div>`;
+    }
+    for (const q of active) {
+      const ready = questReady(q);
+      html += `<div class="quest"><div class="q-name">${esc(q.name)} ${ready ? '<span class="ready">Ready to turn in</span>' : ''}</div>
+        ${goalRows(q).map((r) => `<div class="q-row ${r.have >= r.need ? 'ok' : ''}"><span>${esc(r.label)}</span><b>${r.have} / ${r.need}</b></div>`).join('')}
+        <div class="dim">${esc(ready ? `Return to ${who}.` : q.progress)}</div></div>`;
+    }
+    if (done.length) html += `<div class="q-done">Completed: ${done.map((q) => esc(q.name)).join(' · ')}</div>`;
+    return html;
+  };
+  return section('captain', 'Story · Captain Yoon', 'All missions complete. The city is safe.') +
+    section('jin', 'Nanobot requisitions · Tech Jin', 'Every requisition is filled. Your collection is complete.');
 }
 
 function shopHTML() {
@@ -579,7 +580,7 @@ function helpHTML() {
       <div><kbd>P</kbd> Pause · <kbd>H</kbd> Help</div>
       <div><kbd>Esc</kbd> Close</div>
     </div>
-    <p><b>No classes, just nanobots.</b> Your active nanobot is your weapon: <span style="color:${BOT_TYPES.blade.color}">Blade</span> for melee, <span style="color:${BOT_TYPES.blaster.color}">Blaster</span> for short range, <span style="color:${BOT_TYPES.sniper.color}">Sniper</span> for long range, <span style="color:${BOT_TYPES.medic.color}">Medic</span> for support. Swap mid-fight to chain combos. Bots level up and <b>evolve</b> at levels 6 and 12.</p>
+    <p><b>No classes, just nanobots.</b> Your active nanobot is your weapon: <span style="color:${BOT_TYPES.blade.color}">Blade</span> for melee, <span style="color:${BOT_TYPES.blaster.color}">Blaster</span> for short range, <span style="color:${BOT_TYPES.sniper.color}">Sniper</span> for long range, <span style="color:${BOT_TYPES.medic.color}">Medic</span> for support. Swap mid-fight to chain combos. Bots level up and <b>evolve</b> at levels 6 and 12. <b>New nanobots</b> come only from <b>Tech Jin's requisitions</b>: one bot per requisition, your choice.</p>
     <p><b>Combos:</b> keep hitting to climb the ranks from D to SSS for bonus EXP and damage. Getting hit breaks the combo. Hits fill the <b>Sync</b> gauge. At 100%, press F.</p>
     <p><b>Mission Terminal</b> (east side of Metro Central): repeatable wave operations graded S–C, with elite demons and better nanobot drops.</p>
     <p class="dim">Route: Metro Central → Neon Alley → Line 9 Depot → Skyline Rooftops → Rift Core. Autosaves. On macOS, use Z instead of Ctrl to attack.</p>
@@ -606,10 +607,8 @@ function onWinClick(id, e) {
     equipBot(+d.equipbot, +d.to);
   } else if (d.unslot !== undefined) {
     unslot(+d.unslot);
-  } else if (d.fuse) {
-    fuse(+d.fuse, +d.with);
-  } else if (d.release) {
-    askConfirm('Scrap this nanobot for credits? This cannot be undone.', 'Scrap', () => release(+d.release));
+  } else if (d.overclock) {
+    overclock(+d.overclock);
   } else if (d.launch) {
     closeWin('missions');
     startMission(d.launch);
@@ -756,13 +755,15 @@ function closeDialog() {
 
 function talkTo(id) {
   const npc = NPCS[id];
-  if (npc.role === 'quest') return talkCaptain();
+  if (npc.role === 'quest') return talkGiver('captain');
   if (npc.role === 'missions') {
     sfx('ui');
     return showWin('missions');
   }
-  const buttons = [{ label: 'Shop', primary: true, fn: () => { closeDialog(); openShop(id); } }];
-  if (npc.lab) buttons.push({ label: 'Nano Lab', primary: true, fn: () => { closeDialog(); openLab(); } });
+  const buttons = [];
+  if (npc.lab) buttons.push({ label: questMarker('jin') ? `Requisition ${questMarker('jin')}` : 'Requisition', primary: true, fn: () => { closeDialog(); talkGiver('jin'); } });
+  buttons.push({ label: 'Shop', primary: !npc.lab, fn: () => { closeDialog(); openShop(id); } });
+  if (npc.lab) buttons.push({ label: 'Nano Lab', fn: () => { closeDialog(); openLab(); } });
   buttons.push({ label: 'Goodbye', fn: closeDialog });
   showDialog('npc', npc.name, esc(npc.greet), buttons);
 }
@@ -782,35 +783,65 @@ function openLab() {
 
 function rewardLine(q) {
   const items = (q.reward.items || []).map(([id, n]) => `${n > 1 ? n + '× ' : ''}${ITEMS[id].name}`);
-  const bots = (q.reward.bots || []).map((sp) => `nanobot ${BOTS[sp].evo[0]}`);
-  const all = [...items, ...bots];
-  return `<div class="reward">Reward: ${q.reward.exp} EXP · ${q.reward.gold} ${CURRENCY}${all.length ? ' · ' + esc(all.join(', ')) : ''}</div>`;
+  if (q.reward.pick) items.push('1 nanobot of your choice');
+  return `<div class="reward">Reward: ${q.reward.exp} EXP · ${q.reward.gold} ${CURRENCY}${items.length ? ' · ' + esc(items.join(', ')) : ''}</div>`;
 }
 
-function talkCaptain() {
-  const name = NPCS.captain.name;
-  const q = currentQuest();
+const GIVER_TEXT = {
+  captain: { none: 'The rift is sealed. Take some leave, hunter. You\'ve earned it.', noneBtn: 'Dismissed', low: 'Report back when you\'ve reached level', lowBtn: 'Roger', go: 'On it' },
+  jin: { none: 'That\'s every frame I can build. Your collection is complete.', noneBtn: 'Nice', low: 'I don\'t have parts for the next frame yet. Come back at level', lowBtn: 'OK', go: 'Got it' },
+};
+
+// Talk to a quest giver: offer, show progress, or turn in their current quest.
+function talkGiver(giver) {
+  const name = NPCS[giver].name;
+  const tx = GIVER_TEXT[giver];
+  const q = currentQuest(giver);
   const p = G.player;
-  if (!q) {
-    return showDialog('npc', name, 'The rift is sealed. Take some leave, hunter. You\'ve earned it.', [{ label: 'Dismissed', fn: closeDialog }]);
-  }
+  if (!q) return showDialog('npc', name, tx.none, [{ label: tx.noneBtn, fn: closeDialog }]);
   const st = questState(q.id);
   if (!st) {
-    if (p.lv < q.lv) {
-      return showDialog('npc', name, `${esc(NPCS.captain.greet)}<br><br><span class="dim">Report back when you've reached level ${q.lv}.</span>`, [{ label: 'Roger', fn: closeDialog }]);
-    }
+    if (p.lv < q.lv) return showDialog('npc', name, `${esc(NPCS[giver].greet)}<br><br><span class="dim">${tx.low} ${q.lv}.</span>`, [{ label: tx.lowBtn, fn: closeDialog }]);
     return showDialog('npc', name, `<b class="q-title">${esc(q.name)}</b><br>${esc(q.offer)}${rewardLine(q)}`, [
       { label: 'Accept', primary: true, fn: () => { acceptQuest(q); closeDialog(); } },
       { label: 'Not now', fn: closeDialog },
     ]);
   }
   if (questReady(q)) {
+    if (q.reward.pick) return showDialog('npc', name, `<b class="q-title">${esc(q.name)}</b><br>${esc(q.done)}${rewardLine(q)}`, [
+      { label: 'Choose nanobot', primary: true, fn: () => showBotPick(q) },
+    ]);
     return showDialog('npc', name, `<b class="q-title">${esc(q.name)}</b><br>${esc(q.done)}${rewardLine(q)}`, [
-      { label: 'Complete', primary: true, fn: () => { if (completeQuest(q)) talkCaptain(); } },
+      { label: 'Complete', primary: true, fn: () => { if (completeQuest(q)) talkGiver(giver); } },
     ]);
   }
   const rows = goalRows(q).map((r) => `<div class="q-row ${r.have >= r.need ? 'ok' : ''}"><span>${esc(r.label)}</span><b>${r.have} / ${r.need}</b></div>`).join('');
-  showDialog('npc', name, `<b class="q-title">${esc(q.name)}</b><br>${esc(q.progress)}${rows}`, [{ label: 'On it', fn: closeDialog }]);
+  showDialog('npc', name, `<b class="q-title">${esc(q.name)}</b><br>${esc(q.progress)}${rows}`, [{ label: tx.go, fn: closeDialog }]);
+}
+
+// Cards for choosing one nanobot species (starter or requisition reward).
+function botChoiceHTML(options) {
+  return `<div class="pick">${options.map((sp) => {
+    const s = BOTS[sp], t = BOT_TYPES[s.type];
+    return `<button class="pick-card" data-sp="${sp}" style="--c:${t.color}">
+      <img src="${botIcon(sp, 1).url}" alt="">
+      <b>${esc(s.evo[0])}</b>
+      <span class="pc-type">${RARITY[s.rarity]} ${t.name}</span>
+      <small>${esc(t.desc)}</small>
+      <small class="dim">Personality: ${s.persona}</small>
+    </button>`;
+  }).join('')}</div>`;
+}
+
+function showBotPick(q) {
+  const opts = pickOptions(q);
+  showDialog('npc', `${NPCS.jin.name} · ${q.name}`, `Pick the nanobot Jin should build. You can only take one.${botChoiceHTML(opts)}`, [{ label: 'Later', fn: closeDialog }]);
+  els.dialog.querySelectorAll('.pick-card').forEach((c) => c.addEventListener('click', () => {
+    if (completeQuest(q, c.dataset.sp)) {
+      closeDialog();
+      talkGiver('jin');
+    }
+  }));
 }
 
 function showDeath(loss) {
@@ -948,4 +979,28 @@ function askConfirm(text, yesLabel, onYes) {
   };
   box.querySelector('.c-no').onclick = close;
   box.classList.remove('hidden');
+}
+
+function overclockHint() {
+  const steps = [0, 1, 2, 3, 4].map((s) => {
+    const c = overclockCost({ stars: s });
+    return `★${s + 1}: ${c.gold} ${CURRENCY} + ${c.items.map(([id, n]) => `${n} ${ITEMS[id].name}`).join(' + ')}`;
+  });
+  return `Overclock adds +1★ (+10% power). ${steps.join(' · ')}`;
+}
+
+// New game: choose the first nanobot partner.
+function showStarterPick(name, onNew) {
+  const box = $('#starter');
+  box.innerHTML = `<div class="st-card"><div class="st-title">CHOOSE YOUR FIRST NANOBOT</div>
+    <p>Your nanobot is your weapon. You can earn more later through Tech Jin's requisitions.</p>
+    ${botChoiceHTML(STARTERS)}<button class="st-back">Back</button></div>`;
+  box.classList.remove('hidden');
+  box.querySelector('.st-back').onclick = () => box.classList.add('hidden');
+  box.querySelectorAll('.pick-card').forEach((c) => (c.onclick = () => {
+    box.classList.add('hidden');
+    els.title.classList.add('hidden');
+    onNew(name, c.dataset.sp);
+    showWin('help');
+  }));
 }

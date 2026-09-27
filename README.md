@@ -39,10 +39,12 @@ On macOS, Ctrl+arrow can switch desktops, so use Z to attack.
   - **Blaster** (short range): spread shots, plus scatter, grenade and overdrive skills.
   - **Sniper** (long range): piercing shots, plus rail shot, evasion shot and orbital strike skills.
   - **Medic** (support): orbs that heal you on hit, plus repair, barrier and drone swarm skills.
+- **Starter choice:** a new game begins by choosing your first nanobot from the four commons: Kira (Blade), Pip (Blaster), Lens (Sniper) or Mote (Medic).
+- **Requisitions:** Tech Jin's requisition quests are the only source of new nanobots. There are 11, offered one at a time and gated by level. Each gives exactly one bot, and you pick which from its offer list. Later requisitions require Mission Terminal clears at a set grade.
 - **Evolution:** bots level up from kills and evolve at levels 6 and 12, which changes their name and look.
-- **Fusion:** at Tech Jin's Nano Lab you can fuse a duplicate into a bot for +1★ (max 5★).
+- **Overclock:** at Tech Jin's Nano Lab you can spend credits plus demon loot to add +1★ (+10% power, max 5★). The last star also needs the Sovereign Core.
 - **Personality:** each bot has one of four personalities (cheerful, grumpy, stoic, nervous) and comments in speech bubbles.
-- **Collecting:** nanobot cores drop from demons, with rarer cores from tougher demons. Capsules are sold in the shop, and the Nanodex tracks which species you've found.
+- **Nanodex:** tracks which of the 12 species you've collected.
 - **Combo meter:** consecutive hits climb through ranks D → C → B → A → S → SS → SSS for bonus EXP (up to +75%) and damage. Getting hit breaks the combo. Hits also fill the **Sync** gauge, and F spends it on an ultimate that hits every enemy on screen.
 - **World:** Metro Central (hub) → Neon Alley → Line 9 Depot → Skyline Rooftops → The Rift Core, where you fight the Rift Sovereign boss.
 - **Story:** a 5-mission chain from Captain Yoon that ends at the Rift Sovereign. Beating it plays an ending with your run stats and unlocks the post-game.
@@ -50,6 +52,7 @@ On macOS, Ctrl+arrow can switch desktops, so use Z to attack.
 - **Hoverboard:** 1.75× speed and a higher jump. Attacking, using a skill or taking a hit knocks you off.
 - **Audio:** every sound effect is synthesized with WebAudio, and each zone has its own procedural music track, plus boss, mission and ending themes. You can set master, music and effects volume and turn screen shake on or off in Settings (O).
 - **Game feel:** hitstop on crits and kills, screen shake, hit sparks and damage numbers.
+- **Pixel art:** the world renders at half resolution and is upscaled with hard edges. Characters, demons, NPCs and nanobots are baked from their vector designs into cached, outlined pixel sprites (`src/pixel.js`). Text draws crisp on top in pixel fonts (Pixelify Sans, Press Start 2P).
 - **Saving:** autosaves to `localStorage` under the key `ghostx-solo-save-v2`.
 
 ## Code map

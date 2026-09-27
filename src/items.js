@@ -1,9 +1,8 @@
 // Inventory and equipment helpers.
 import { G } from './state.js';
-import { ITEMS, BOTS, BOT_ORDER } from './data.js';
+import { ITEMS } from './data.js';
 import { log, addText, burst } from './fx.js';
 import { recalc } from './player.js';
-import { addBot } from './bots.js';
 import { sfx } from './audio.js';
 
 const STACK = 999;
@@ -83,14 +82,8 @@ export function useSlot(i) {
     G.hooks.travel('plaza', 'spawn');
     return;
   }
-  if (it.capsule) {
-    const commons = BOT_ORDER.filter((sp) => BOTS[sp].rarity === 1);
-    if (!addBot(commons[Math.floor(Math.random() * commons.length)])) return;
-    consume(i);
-    return;
-  }
   if (it.hp && p.hp >= p.maxHp && !it.mp) return log('Your HP is already full.');
-  if (it.mp && p.mp >= p.maxMp && !it.hp) return log('Your MP is already full.');
+  if (it.mp && p.mp >= p.maxMp && !it.hp) return log('Your EN is already full.');
   if (it.hp) {
     p.hp = Math.min(p.maxHp, p.hp + it.hp);
     addText(p.x, p.y - 80, '+' + it.hp, 'heal');

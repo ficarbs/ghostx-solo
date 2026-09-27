@@ -15,7 +15,8 @@ const COMBO = [
   { mult: 1.5, reach: 108, targets: 4, knock: 230 },
 ];
 
-export function createPlayer(name) {
+// `starter` is the nanobot species chosen at the start (one of STARTERS).
+export function createPlayer(name, starter = 'kira') {
   const p = {
     name, lv: 1, exp: 0, gold: 50,
     base: { str: 5, dex: 5, vit: 5 },
@@ -23,14 +24,12 @@ export function createPlayer(name) {
     equip: { head: null, body: 'hoodie', chip: null },
     inv: Array(INV_SIZE).fill(null),
     quests: {},
-    bots: [], slots: [null, null, null], active: 0, seen: ['kira', 'pip'], bestCombo: 0,
+    bots: [], slots: [null, null, null], active: 0, seen: [starter], bestCombo: 0,
     missions: {}, storyDone: false, playTime: 0,
   };
-  const kira = newBot(p, 'kira');
-  p.bots.push(kira);
-  const pip = newBot(p, 'pip');
-  p.bots.push(pip);
-  p.slots = [kira.uid, pip.uid, null];
+  const first = newBot(p, starter);
+  p.bots.push(first);
+  p.slots = [first.uid, null, null];
   p.inv[0] = { id: 'med_s', qty: 15 };
   p.inv[1] = { id: 'cell_s', qty: 8 };
   p.inv[2] = { id: 'recall', qty: 2 };

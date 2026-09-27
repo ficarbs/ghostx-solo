@@ -21,11 +21,11 @@ initRender(document.getElementById('view'));
 G.hooks.save = saveGame;
 G.hooks.travel = travel;
 
-function newGame(name) {
-  G.player = createPlayer(name);
+function newGame(name, starter) {
+  G.player = createPlayer(name, starter);
   start('plaza', 'spawn');
   log(`Welcome to GhostX HQ, ${name}.`, 'sys');
-  log('Talk to Captain Yoon (↑ near her) to begin. Swap nanobots with 1 / 2 / 3.', 'sys');
+  log('Talk to Captain Yoon (↑ near her) to begin. Tech Jin gives requisitions for new nanobots.', 'sys');
 }
 
 function continueGame() {
