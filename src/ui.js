@@ -150,6 +150,7 @@ export function initUI({ onNew, onContinue, hasSave }) {
 }
 
 function fitStage() {
+  requestAnimationFrame(() => document.querySelectorAll('.win:not(.hidden)').forEach(keepOnScreen));
   // Measure the stage, not the window: the stage is inset by the phone's safe areas.
   const stage = $('#stage');
   const sw = stage.clientWidth || window.innerWidth, sh = stage.clientHeight || window.innerHeight;
@@ -358,7 +359,7 @@ function buildWindows() {
     el.style.width = w.w + 'px';
     el.innerHTML = `<div class="win-head"><span>${w.title}</span><button class="x" title="Close">×</button></div><div class="win-body"></div>`;
     el.querySelector('.x').addEventListener('click', () => closeWin(id));
-    el.addEventListener('mousedown', () => focusWin(el));
+    el.addEventListener('pointerdown', () => focusWin(el));
     makeDraggable(el, el.querySelector('.win-head'));
     els.windows.appendChild(el);
     const body = el.querySelector('.win-body');
@@ -375,22 +376,38 @@ function focusWin(el) {
   el.style.zIndex = ++zTop;
 }
 
+// Drag by the header with mouse, pen or finger.
 function makeDraggable(el, handle) {
-  handle.addEventListener('mousedown', (e) => {
+  handle.addEventListener('pointerdown', (e) => {
     if (e.target.closest('button')) return;
+    e.preventDefault();
     const sx = e.clientX, sy = e.clientY;
     const ox = parseFloat(el.style.left), oy = parseFloat(el.style.top);
     const move = (ev) => {
-      el.style.left = Math.max(-el.offsetWidth + 60, Math.min(VIEW_W - 60, ox + (ev.clientX - sx) / scale)) + 'px';
-      el.style.top = Math.max(0, Math.min(VIEW_H - 30, oy + (ev.clientY - sy) / scale)) + 'px';
+      el.style.left = ox + (ev.clientX - sx) / scale + 'px';
+      el.style.top = oy + (ev.clientY - sy) / scale + 'px';
+      keepOnScreen(el);
     };
     const up = () => {
-      window.removeEventListener('mousemove', move);
-      window.removeEventListener('mouseup', up);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
     };
-    window.addEventListener('mousemove', move);
-    window.addEventListener('mouseup', up);
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
   });
+}
+
+// Keep a window fully inside the play area above the HUD, at its current UI zoom.
+const HUD_TOP = VIEW_H - 84;
+function keepOnScreen(el) {
+  const z = parseFloat(getComputedStyle(document.body).getPropertyValue('--wz')) || 1;
+  const w = el.offsetWidth * z, h = el.offsetHeight * z;
+  const left = Math.max(4, Math.min(VIEW_W - w - 4, parseFloat(el.style.left) || 0));
+  const top = Math.max(4, Math.min(HUD_TOP - h, parseFloat(el.style.top) || 0));
+  el.style.left = left + 'px';
+  el.style.top = top + 'px';
 }
 
 function showWin(id) {
@@ -399,6 +416,7 @@ function showWin(id) {
   el.classList.remove('hidden');
   focusWin(el);
   renderWin(id);
+  keepOnScreen(el);
 }
 
 function closeWin(id) {
@@ -428,6 +446,7 @@ function renderWin(id) {
   const body = $('#win-' + id + ' .win-body');
   body.innerHTML = { inv: invHTML, char: charHTML, bots: botsHTML, quests: questsHTML, shop: shopHTML, help: helpHTML, missions: missionsHTML, settings: settingsHTML, workshop: workshopHTML, wardrobe: wardrobeHTML }[id]();
   if (id === 'wardrobe') drawPlayerPreview($('#wd-preview'), G.player, G.player.style);
+  keepOnScreen($('#win-' + id));
   if (id === 'shop') $('#win-shop .win-head span').textContent = shopNpc ? NPCS[shopNpc].name : 'Shop';
   if (id === 'bots') $('#win-bots .win-head span').textContent = labMode ? 'Nano Lab · Tech Jin' : 'Nanobots';
 }
