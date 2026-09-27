@@ -8,6 +8,7 @@ const KEYMAP = {
   KeyQ: 'hp', KeyW: 'mp',
   KeyI: 'inv', KeyC: 'char', KeyE: 'char', KeyN: 'bots', KeyK: 'bots', KeyJ: 'quests', KeyH: 'help',
   KeyR: 'mount', KeyO: 'settings', KeyP: 'pause', Tab: 'swapnext',
+  ShiftLeft: 'dodge', ShiftRight: 'dodge', KeyV: 'dodge',
   Escape: 'esc',
 };
 
@@ -41,10 +42,10 @@ export function isDown(action) {
 }
 
 // ---------- Gamepad (standard mapping) ----------
-// A jump · X attack · B/Y/RB skills 1-3 · RT sync · LB swap · LT med pack · RS-click mount · Back bots · Start pause
+// A jump · X attack · B dodge · Y/LB/RB skills 1-3 · RT sync · LT swap · LS-click med pack · RS-click mount · Back bots · Start pause
 const PAD_BUTTONS = {
-  0: 'jump', 2: 'attack', 1: 'skill1', 3: 'skill2', 5: 'skill3', 7: 'skill4',
-  4: 'swapnext', 6: 'hp', 11: 'mount', 8: 'bots', 9: 'pause',
+  0: 'jump', 2: 'attack', 1: 'dodge', 3: 'skill1', 4: 'skill2', 5: 'skill3', 7: 'skill4',
+  6: 'swapnext', 10: 'hp', 11: 'mount', 8: 'bots', 9: 'pause',
   12: 'up', 13: 'down', 14: 'left', 15: 'right',
 };
 let padDown = new Set();

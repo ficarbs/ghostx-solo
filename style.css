@@ -302,9 +302,10 @@ body.touch #touch { display: block; position: absolute; inset: 0 0 80px 0; point
 .tb.sk1 { right: 136px; bottom: 90px; }
 .tb.sk2 { right: 88px; bottom: 132px; }
 .tb.sk3 { right: 22px; bottom: 132px; }
-.tb.sk4 { right: 196px; bottom: 60px; border-color: rgba(255, 226, 122, 0.7); }
+.tb.sk4 { right: 196px; bottom: 130px; border-color: rgba(255, 226, 122, 0.7); }
+.tb.dodge { right: 208px; bottom: 40px; width: 60px; height: 60px; font-size: 8px; border-color: rgba(190, 255, 230, 0.7); }
 .tb.mini { width: 46px; height: 46px; font-size: 10px; border-radius: 12px; }
-.tb.swap { right: 214px; bottom: 6px; font-size: 18px; }
+.tb.swap { left: 526px; bottom: 8px; font-size: 18px; }
 .tb.hp { left: 370px; bottom: 8px; }
 .tb.mp { left: 422px; bottom: 8px; }
 .tb.mount { left: 474px; bottom: 8px; }

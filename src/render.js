@@ -1052,12 +1052,16 @@ function drawEffect(e) {
       break;
     }
     case 'alert':
-      ctx.font = '20px "Press Start 2P", monospace';
-      ctx.textAlign = 'center';
-      ctx.strokeStyle = '#000'; ctx.lineWidth = 4;
-      ctx.strokeText('!', e.x, e.y);
-      ctx.fillStyle = '#ff4040';
-      ctx.fillText('!', e.x, e.y);
+      // Attack telegraph: drawn in the crisp text pass so it reads instantly.
+      later(() => {
+        const pulse = 1 + 0.25 * Math.sin(e.t * 30);
+        ctx.font = `${Math.round(22 * pulse)}px "Press Start 2P", monospace`;
+        ctx.textAlign = 'center';
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 5;
+        ctx.strokeText('!', e.x, e.y);
+        ctx.fillStyle = '#ff3040';
+        ctx.fillText('!', e.x, e.y);
+      });
       break;
     case 'warn':
       ctx.globalAlpha = 0.25 + 0.25 * Math.sin(e.t * 30);
@@ -1103,7 +1107,7 @@ function weaponAngle(p, type) {
 }
 
 // Weapon form is out while fighting; otherwise the nanobot floats beside you as a companion.
-const armed = (p) => !!p.act || p.attackT > 0 || p.lastAtk < 0.9;
+const armed = (p) => (!!p.act && p.act.type !== 'roll' && p.act.type !== 'airdash') || p.attackT > 0 || p.lastAtk < 0.9;
 
 // Reduce the player's continuous state to a small set of sprite frames.
 function playerPose(p, type) {
@@ -1111,7 +1115,8 @@ function playerPose(p, type) {
   const q = {
     mounted: !!p.mounted,
     hover: p.mounted ? (Math.floor(t * 4) % 2) * 2 : 0,
-    lean: p.act?.type === 'dash' ? 0.25 : 0,
+    lean: p.act?.type === 'dash' || p.act?.type === 'airdash' ? 0.3 : 0,
+    spin: p.act?.type === 'roll' ? Math.round(((1 - p.act.t / 0.34) * PI * 2) / (PI / 4)) * (PI / 4) : 0,
     rope: !!p.rope,
     climb: p.rope ? (Math.sin(p.climbT * 12) > 0 ? 1 : -1) : 0,
     air: !p.onGround && !p.rope,
@@ -1129,7 +1134,7 @@ function playerPose(p, type) {
     const a = Math.atan2(Math.sin(s.ang), Math.cos(s.ang));
     q.w = { ang: Math.round(a / 0.2) * 0.2, ext: Math.round(s.ext / 2) * 2 };
   }
-  q.key = [+q.mounted, q.hover, q.lean, q.rope ? q.climb : 'n', +q.air, q.sw, q.bob, q.w ? `${q.w.ang.toFixed(1)},${q.w.ext}` : '-'].join('|');
+  q.key = [+q.mounted, q.hover, q.lean, q.spin.toFixed(2), q.rope ? q.climb : 'n', +q.air, q.sw, q.bob, q.w ? `${q.w.ang.toFixed(1)},${q.w.ext}` : '-'].join('|');
   return q;
 }
 
@@ -1211,6 +1216,13 @@ function drawPlayerBody(q, type, stage, color, jacket, headId) {
     ctx.translate(0, -8 + q.hover);
   }
   ctx.rotate(q.lean);
+  if (q.spin) {
+    // Tuck and roll around the body's centre.
+    ctx.translate(0, -26);
+    ctx.rotate(q.spin);
+    ctx.scale(0.85, 0.85);
+    ctx.translate(0, 26);
+  }
 
   if (q.rope) {
     const c = q.climb;
@@ -1312,7 +1324,7 @@ function drawCompanion(p, type, stage, color, t) {
 // Sprite bounds per demon type, [x0, y0, w, h] around the feet anchor (facing right).
 const MOB_BOX = {
   imp: [-32, -52, 68, 58], wisp: [-20, -48, 40, 52], hound: [-54, -62, 108, 66],
-  specter: [-26, -76, 64, 90], brute: [-38, -90, 84, 94], sovereign: [-172, -188, 294, 196],
+  specter: [-26, -76, 64, 90], brute: [-38, -112, 84, 116], sovereign: [-172, -188, 294, 196],
 };
 const MOB_GLOW = { wisp: 'rgba(255,80,220,', specter: 'rgba(110,90,255,' };
 
@@ -1336,7 +1348,7 @@ function drawMob(m) {
     ctx.fillRect(-r, y - r, r * 2, r * 2);
   };
   if (m.elite && m.alive) aura(m.h, -m.h / 2, 'rgba(255,200,60,');
-  if (MOB_GLOW[m.type]) aura(m.type === 'wisp' ? 30 : 36, -m.h / 2, MOB_GLOW[m.type]);
+  if (MOB_GLOW[m.type]) aura(m.type === 'wisp' ? (m.casting > 0 ? 46 : 30) : 36, -m.h / 2, m.casting > 0 && m.type === 'wisp' ? 'rgba(255,60,80,' : MOB_GLOW[m.type]);
   if (m.type === 'sovereign' && ((m.st === 'lunge' && m.atk?.phase === 'wind') || m.st === 'sweep' || m.st === 'rain')) aura(130, -60, 'rgba(255,40,100,');
   ctx.restore();
 
@@ -1380,7 +1392,7 @@ function eyes(x1, x2, y, color, r = 2.5) {
 const MOB_DRAW = {
   imp(m) {
     const moving = Math.abs(m.vx) > 5;
-    const bob = moving ? Math.abs(Math.sin(m.anim * 12)) * 3 : Math.sin(m.anim * 3);
+    const bob = m.windup > 0 ? -4 : moving ? Math.abs(Math.sin(m.anim * 12)) * 3 : Math.sin(m.anim * 3);
     const l = moving ? Math.sin(m.anim * 12) * 4 : 0;
     ctx.fillStyle = '#6a1a1e';
     ctx.fillRect(-9 + l, -9, 6, 9);
@@ -1414,7 +1426,7 @@ const MOB_DRAW = {
     // glitch blocks
     ctx.fillStyle = Math.floor(m.anim * 12) % 2 ? '#40ffff' : '#ffffff';
     for (let i = 0; i < 3; i++) ctx.fillRect(((m.anim * 37 + i * 13) % 24) - 12, -30 + i * 8, 4, 3);
-    ctx.fillStyle = '#300a30';
+    ctx.fillStyle = m.casting > 0 ? '#ff2040' : '#300a30';
     ctx.fillRect(-6, -19, 4, 5);
     ctx.fillRect(3, -19, 4, 5);
   },
@@ -1490,7 +1502,12 @@ const MOB_DRAW = {
     eyes(12, null, -62, m.aggro ? '#ffa030' : '#6a3a2a', 3);
     ctx.fillStyle = '#7a8090';
     const punch = m.aggro ? Math.max(0, Math.sin(m.anim * 5)) * 6 : 0;
-    roundRect(20 + punch, -42, 16, 16, 4);
+    if (m.windup > 0) {
+      // Fist raised for the ground pound.
+      roundRect(4, -104, 20, 20, 4);
+      ctx.fill();
+      ctx.fillRect(10, -86, 8, 30);
+    } else roundRect(20 + punch, -42, 16, 16, 4);
     ctx.fill();
   },
   sovereign(m) {

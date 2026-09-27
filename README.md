@@ -18,6 +18,7 @@ Open http://localhost:8124. The game uses ES modules, so it needs to be served o
 | ↑ | Climb ladder · enter gate · talk |
 | ↓ | Climb down · ↓ + jump drops through a platform |
 | X / Alt / Space | Jump |
+| Shift / V | Dodge-roll (air dash when airborne) |
 | Z / Ctrl | Attack (hold) |
 | 1 2 3 | Swap active nanobot |
 | A S D | Nanobot skills (unlock at nanobot Lv 1 / 4 / 8) |
@@ -30,7 +31,7 @@ Open http://localhost:8124. The game uses ES modules, so it needs to be served o
 
 On macOS, Ctrl+arrow can switch desktops, so use Z to attack.
 
-**Gamepad** (standard mapping) is also supported: A jump · X attack · B/Y/RB skills · RT sync · LB next bot · LT med pack · right-stick click hoverboard · Back nanobots · Start pause.
+**Gamepad** (standard mapping) is also supported: A jump · X attack · B dodge · Y/LB/RB skills · RT sync · LT next bot · left-stick click med pack · right-stick click hoverboard · Back nanobots · Start pause.
 
 ## Systems
 
@@ -51,6 +52,9 @@ On macOS, Ctrl+arrow can switch desktops, so use Z to attack.
 - **Mission Terminal** (east side of Metro Central): repeatable instanced wave operations, including gold-glowing **elite** demons. Each clear is graded **S/A/B/C** on time vs. par, damage taken and best combo, and the grade multiplies rewards (×0.8 to ×1.5). The post-game adds **Rift Breach** (4 elite-heavy waves) and **Sovereign EX** (Lv 20, about 3× HP and 1.7× damage).
 - **Hoverboard:** 1.75× speed and a higher jump. Attacking, using a skill or taking a hit knocks you off.
 - **Audio:** every sound effect is synthesized with WebAudio, and each zone has its own procedural music track, plus boss, mission and ending themes. You can set master, music and effects volume and turn screen shake on or off in Settings (O).
+- **Dodging:** a ground roll and a once-per-jump air dash, both with brief invulnerability. A dodge can cancel a basic attack, Cyclone Edge, Overdrive or Ground Breaker's recovery, and skills can cancel the tail of a dodge. Dodging a real attack at the last instant (a projectile, charge, pounce, dive, lunge, sweep or shockwave) triggers a **Perfect**: slow-motion, +15 Sync, and +30% damage for 1.5s.
+- **Swap Strike:** swapping nanobots within 0.6s of landing a hit makes the incoming bot fire a free type-specific attack, so combos can chain across swaps.
+- **Enemy AI:** attacks are telegraphed with a red **!**. Imps pounce, hellhounds charge, brutes raise a fist and send a shockwave along the platform (jump it), glitch wisps swoop, and specters shoot and blink away when you get close. Hitting one demon pulls in its neighbours, demons spread out instead of stacking, and brutes barely flinch.
 - **Game feel:** hitstop on crits and kills, screen shake, hit sparks and damage numbers.
 - **Pixel art:** the world renders at half resolution and is upscaled with hard edges. Characters, demons, NPCs and nanobots are baked from their vector designs into cached, outlined pixel sprites (`src/pixel.js`). Text draws crisp on top in pixel fonts (Pixelify Sans, Press Start 2P).
 - **Saving:** autosaves to `localStorage` under the key `ghostx-solo-save-v2`.

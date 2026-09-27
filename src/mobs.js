@@ -53,10 +53,13 @@ export function damageMob(m, dmg, crit, dir, opts = {}) {
   addText(m.x + rand(-8, 8), m.y - m.h - 8, crit ? dmg + '!' : dmg, crit ? 'crit' : 'dmg');
   burst(m.x, m.y - m.h / 2, crit ? '#ffb347' : '#fff3c4', crit ? 12 : 6, crit ? 260 : 180, { grav: 200, glow: true });
   effect({ type: 'hit', x: m.x - dir * 6, y: m.y - m.h / 2, dur: 0.12, crit });
+  // Demons nearby join the fight.
+  for (const o of G.mobs) if (o !== m && o.alive && !o.aggro && Math.abs(o.x - m.x) < 260 && Math.abs(o.y - m.y) < 120) o.aggro = true;
   if (m.d.kind !== 'boss') {
-    m.hurtT = 0.25;
-    m.vx = dir * (opts.knock ?? 120);
-    if (opts.up && m.d.kind === 'walker') {
+    const heavy = m.d.heavy ? 0.3 : 1;
+    m.hurtT = m.d.heavy ? 0.08 : 0.25;
+    m.vx = dir * (opts.knock ?? 120) * heavy;
+    if (opts.up && m.d.kind === 'walker' && !m.d.heavy) {
       m.vy = -opts.up;
       m.airborne = true;
     }
@@ -148,7 +151,7 @@ export function updateProjs(dt) {
     if (Math.random() < 0.6) G.parts.push({ x: pr.x, y: pr.y, vx: rand(-20, 20), vy: rand(-20, 20), life: 0.3, t: 0, color: pr.color, size: pr.r * 0.5, grav: 0, glow: true });
     const hb = { x1: pr.x - pr.r, x2: pr.x + pr.r, y1: pr.y - pr.r, y2: pr.y + pr.r };
     if (!p.dead && overlaps(pb, hb)) {
-      hurtPlayer(pr.dmg, pr.x);
+      hurtPlayer(pr.dmg, pr.x, true);
       pr.dead = true;
       burst(pr.x, pr.y, pr.color, 10, 160, { glow: true, grav: 0 });
     }
@@ -183,8 +186,9 @@ export function updateMobs(dt) {
     else updateWalker(m, dt);
 
     if (!p.dead && overlaps(pb, { x1: m.x - m.w / 2 + 4, x2: m.x + m.w / 2 - 4, y1: m.y - m.h + 4, y2: m.y })) {
-      const mul = m.st === 'lunge' ? 1.4 : m.charging ? 1.3 : 1;
-      hurtPlayer(m.atkv * mul, m.x);
+      const attacking = m.st === 'lunge' || m.charging || m.pouncing || m.diving > 0;
+      const mul = m.st === 'lunge' ? 1.4 : m.charging ? 1.3 : m.pouncing || m.diving > 0 ? 1.2 : 1;
+      hurtPlayer(m.atkv * mul, m.x, attacking);
     }
   }
   G.mobs = G.mobs.filter((m) => m.alive || m.deadT > 0);
@@ -215,11 +219,7 @@ function updateWalker(m, dt) {
   } else if (m.windup > 0) {
     m.vx = 0;
     m.windup -= dt;
-    if (m.windup <= 0) {
-      m.charging = true;
-      m.chargeT = 0.7;
-      m.vx = m.face * 380;
-    }
+    if (m.windup <= 0) releaseAttack(m);
   } else if (m.charging) {
     m.chargeT -= dt;
     if (Math.random() < 0.7) burst(m.x - m.face * 20, m.y - 4, 'rgba(210,190,150,0.8)', 1, 60, { grav: 0 });
@@ -231,9 +231,11 @@ function updateWalker(m, dt) {
     m.face = Math.sign(dx) || m.face;
     m.vx = Math.abs(dx) < 10 ? 0 : m.face * m.d.speed * 1.5;
     m.atkCd -= dt;
-    if (m.d.charge && m.atkCd <= 0 && Math.abs(dx) < 260 && Math.abs(dx) > 60) {
-      m.windup = 0.45;
-      effect({ type: 'alert', x: m.x, y: m.y - m.h - 18, dur: 0.45 });
+    const adx = Math.abs(dx);
+    if (m.atkCd <= 0 && !m.airborne) {
+      if (m.d.charge && adx < 260 && adx > 60) windup(m, 0.45);
+      else if (m.d.pounce && adx < 170 && adx > 30) windup(m, 0.35);
+      else if (m.d.pound && adx < 150) windup(m, 0.65);
     }
   } else {
     m.t -= dt;
@@ -246,6 +248,12 @@ function updateWalker(m, dt) {
   }
 
   m.x += m.vx * dt;
+  // Keep demons on the same platform from stacking on one spot.
+  for (const o of G.mobs) {
+    if (o === m || !o.alive || o.plat !== pl || o.d.kind !== 'walker') continue;
+    const gap = (m.w + o.w) * 0.35, d = m.x - o.x;
+    if (Math.abs(d) < gap) m.x += (Math.sign(d) || (m.id < o.id ? -1 : 1)) * Math.min(gap - Math.abs(d), 80 * dt);
+  }
   const minX = pl.x + m.w / 2, maxX = pl.x + pl.w - m.w / 2;
   if (m.x < minX) {
     m.x = minX;
@@ -263,7 +271,43 @@ function updateWalker(m, dt) {
       m.y = pl.y;
       m.vy = 0;
       m.airborne = false;
+      if (m.pouncing) {
+        m.pouncing = false;
+        m.vx = 0;
+        m.atkCd = rand(1.6, 2.6);
+        burst(m.x, m.y, 'rgba(210,190,150,0.8)', 6, 100, { grav: 0 });
+      }
     }
+  }
+}
+
+function windup(m, t) {
+  m.windup = t;
+  m.vx = 0;
+  effect({ type: 'alert', x: m.x, y: m.y - m.h * m.size - 18, dur: t });
+}
+
+// The telegraphed attack fires when the windup ends.
+function releaseAttack(m) {
+  const p = G.player;
+  if (m.d.charge) {
+    m.charging = true;
+    m.chargeT = 0.7;
+    m.vx = m.face * 380;
+  } else if (m.d.pounce) {
+    m.pouncing = true;
+    m.airborne = true;
+    m.vy = -430;
+    m.vx = m.face * 280;
+    sfx('jump');
+  } else if (m.d.pound) {
+    // Shockwave along the platform: jump over it.
+    m.atkCd = rand(2.6, 3.6);
+    shake(8);
+    sfx('slam');
+    effect({ type: 'ring', x: m.x, y: m.y, r: 170, color: '#ffa030', dur: 0.4 });
+    burst(m.x, m.y, '#a8a0a0', 20, 280, { up: -160, grav: 900 });
+    if (!p.dead && p.onGround && Math.abs(p.y - m.y) < 20 && Math.abs(p.x - m.x) < 170) hurtPlayer(m.atkv * 1.3, m.x, true);
   }
 }
 
@@ -271,6 +315,45 @@ function updateFloater(m, dt) {
   const p = G.player;
   senseAggro(m);
   const pl = m.plat;
+  m.blinkCd = (m.blinkCd || 0) - dt;
+  // Wisps: telegraphed swoop at the player.
+  if (m.d.dive && m.hurtT <= 0) {
+    if (m.diving > 0) {
+      m.diving -= dt;
+      m.x += m.dvx * dt;
+      m.y = Math.min(m.y + m.dvy * dt, pl.floor ? pl.y - 10 : pl.y + 80);
+      if (m.diving <= 0) m.atkCd = rand(2, 3.2);
+      return;
+    }
+    if (m.diveWind > 0) {
+      m.diveWind -= dt;
+      m.casting = m.diveWind;
+      if (m.diveWind <= 0) {
+        const a = Math.atan2(p.y - 30 - m.y, p.x - m.x);
+        m.dvx = Math.cos(a) * 430;
+        m.dvy = Math.sin(a) * 430;
+        m.diving = 0.45;
+        sfx('dash');
+      }
+      return;
+    }
+    if (m.aggro) {
+      m.atkCd -= dt;
+      if (m.atkCd <= 0 && Math.hypot(p.x - m.x, p.y - m.y) < 260) {
+        m.diveWind = 0.45;
+        effect({ type: 'alert', x: m.x, y: m.y - m.h - 18, dur: 0.45 });
+      }
+    }
+  }
+  // Specters: blink away when the player gets close.
+  if (m.d.blink && m.aggro && m.blinkCd <= 0 && Math.abs(p.x - m.x) < 110 && Math.abs(p.y - m.y) < 100) {
+    burst(m.x, m.y - m.h / 2, '#8a7aff', 16, 200, { grav: 0, glow: true });
+    m.x = clamp(p.x + (m.x < p.x ? -1 : 1) * 260, pl.x - 100, pl.x + pl.w + 100);
+    m.blinkCd = 3.5;
+    m.atkCd = Math.min(m.atkCd, 0.6);
+    burst(m.x, m.y - m.h / 2, '#8a7aff', 16, 200, { grav: 0, glow: true });
+    sfx('portal');
+  }
   let tx, ty;
   if (m.aggro) {
     tx = p.x;
@@ -369,7 +452,7 @@ function updateBoss(m, dt) {
       effect({ type: 'sweep', x: m.x, y: floor, face: m.face, dur: 0.35 });
       sfx('slam');
       shake(8);
-      if (!p.dead && Math.abs(p.x - m.x) < 230 && p.y > floor - 40) hurtPlayer(m.atkv * 1.35, m.x);
+      if (!p.dead && Math.abs(p.x - m.x) < 230 && p.y > floor - 40) hurtPlayer(m.atkv * 1.35, m.x, true);
     }
   } else if (m.st === 'summon') {
     if (!a.fired && a.t <= 0.4) {

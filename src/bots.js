@@ -3,7 +3,7 @@ import { G } from './state.js';
 import { BOTS, BOT_TYPES, BOT_SKILLS, PERSONA, BOT_MAX_LV, RARITY, OVERCLOCK, botExpNeed } from './data.js';
 import { countItem, removeItem } from './items.js';
 import { log, banner, burst, effect } from './fx.js';
-import { recalc } from './player.js';
+import { recalc, swapStrike } from './player.js';
 import { sfx } from './audio.js';
 
 export const STAGE_LV = [1, 6, 12];
@@ -96,6 +96,7 @@ export function swapTo(i) {
   effect({ type: 'swap', dur: 0.3, color: botColor(b) });
   sfx('swap');
   say('swap');
+  swapStrike(p);
   G.dirty = true;
 }
 

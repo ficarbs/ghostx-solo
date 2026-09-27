@@ -569,6 +569,7 @@ function helpHTML() {
       <div><kbd>↑</kbd> Climb · enter gate · talk</div>
       <div><kbd>↓</kbd> Climb down · <kbd>↓</kbd>+jump to drop</div>
       <div><kbd>X</kbd> / <kbd>Alt</kbd> / <kbd>Space</kbd> Jump</div>
+      <div><kbd>Shift</kbd> / <kbd>V</kbd> Dodge (air dash in the air)</div>
       <div><kbd>Z</kbd> / <kbd>Ctrl</kbd> Attack (hold)</div>
       <div><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> Swap nanobot</div>
       <div><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Nanobot skills</div>
@@ -581,6 +582,7 @@ function helpHTML() {
       <div><kbd>Esc</kbd> Close</div>
     </div>
     <p><b>No classes, just nanobots.</b> Your active nanobot is your weapon: <span style="color:${BOT_TYPES.blade.color}">Blade</span> for melee, <span style="color:${BOT_TYPES.blaster.color}">Blaster</span> for short range, <span style="color:${BOT_TYPES.sniper.color}">Sniper</span> for long range, <span style="color:${BOT_TYPES.medic.color}">Medic</span> for support. Swap mid-fight to chain combos. Bots level up and <b>evolve</b> at levels 6 and 12. <b>New nanobots</b> come only from <b>Tech Jin's requisitions</b>: one bot per requisition, your choice.</p>
+    <p><b>Dodging:</b> rolls and air dashes make you briefly invulnerable. Dodge an attack at the last instant for a <b>Perfect</b>: slow-motion, +15% Sync, and +30% damage for 1.5s. Swap nanobots right after a hit for a free <b>Swap Strike</b> from the incoming bot. Watch for the red <b>!</b>: that demon is about to attack.</p>
     <p><b>Combos:</b> keep hitting to climb the ranks from D to SSS for bonus EXP and damage. Getting hit breaks the combo. Hits fill the <b>Sync</b> gauge. At 100%, press F.</p>
     <p><b>Mission Terminal</b> (east side of Metro Central): repeatable wave operations graded S–C, with elite demons and better nanobot drops.</p>
     <p class="dim">Route: Metro Central → Neon Alley → Line 9 Depot → Skyline Rooftops → Rift Core. Autosaves. On macOS, use Z instead of Ctrl to attack.</p>
@@ -910,7 +912,7 @@ function settingsHTML() {
     ${touchSelectHTML()}
     <label class="set check"><input type="checkbox" data-set="shake" ${settings.shake ? 'checked' : ''}> Screen shake</label>
     <div class="set-btns"><button data-open="help">Controls</button><button data-fullscreen="1">Fullscreen</button><button data-reset="1" class="danger">Delete save</button></div>
-    <div class="hint">P pauses. Gamepads are supported (A jump · X attack · B/Y/RB skills · RT sync · LB swap).</div>`;
+    <div class="hint">P pauses. Gamepads are supported (A jump · X attack · B dodge · Y/LB/RB skills · RT sync · LT swap).</div>`;
 }
 
 function onSettingInput(e) {

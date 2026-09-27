@@ -60,6 +60,11 @@ window.__tick = (seconds, fps = 60) => {
 };
 
 function step(dt) {
+  // Slow-motion after a perfect dodge.
+  if (G.slowT > 0) {
+    G.slowT -= dt;
+    dt *= 0.35;
+  }
   if (G.started && G.hitstop > 0) {
     G.hitstop -= dt;
     render();

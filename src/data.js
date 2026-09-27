@@ -176,16 +176,18 @@ export const COMBO_TIME = 3;
 
 // ---------- Monsters ----------
 // kind: walker (patrols a platform) | floater (hovers) | boss.
+// Attack behaviours: charge (dash), pounce (hop at you), pound (shockwave: jump over it), dive (swoop),
+// blink (teleport away when crowded), shoots (projectiles). heavy = barely flinches from knockback.
 export const MOBS = {
-  imp: { name: 'Rift Imp', lv: 1, hp: 40, atk: 11, def: 0, exp: 10, speed: 55, w: 34, h: 40, kind: 'walker', aggro: 0, gold: [3, 8],
+  imp: { name: 'Rift Imp', lv: 1, hp: 40, atk: 11, def: 0, exp: 10, speed: 55, w: 34, h: 40, kind: 'walker', aggro: 110, pounce: true, gold: [3, 8],
     drops: [['demon_horn', 0.5], ['med_s', 0.12], ['focus_chip', 0.01]] },
-  wisp: { name: 'Glitch Wisp', lv: 3, hp: 62, atk: 16, def: 1, exp: 18, speed: 50, w: 30, h: 34, kind: 'floater', aggro: 220, gold: [5, 12],
+  wisp: { name: 'Glitch Wisp', lv: 3, hp: 62, atk: 16, def: 1, exp: 18, speed: 50, w: 30, h: 34, kind: 'floater', aggro: 220, dive: true, gold: [5, 12],
     drops: [['glitch_shard', 0.55], ['cell_s', 0.15], ['focus_chip', 0.02]] },
   hound: { name: 'Hellhound', lv: 5, hp: 160, atk: 27, def: 3, exp: 42, speed: 80, w: 66, h: 40, kind: 'walker', aggro: 300, charge: true, gold: [10, 22],
     drops: [['hound_fang', 0.45], ['med_s', 0.2], ['kevlar', 0.03], ['tac_visor', 0.02]] },
-  specter: { name: 'Shade Specter', lv: 7, hp: 250, atk: 37, def: 5, exp: 70, speed: 55, w: 34, h: 62, kind: 'floater', aggro: 340, shoots: true, gold: [15, 30],
+  specter: { name: 'Shade Specter', lv: 7, hp: 250, atk: 37, def: 5, exp: 70, speed: 55, w: 34, h: 62, kind: 'floater', aggro: 340, shoots: true, blink: true, gold: [15, 30],
     drops: [['shade_residue', 0.45], ['med_m', 0.08], ['cell_m', 0.05], ['reflex_chip', 0.015]] },
-  brute: { name: 'Iron Brute', lv: 9, hp: 500, atk: 50, def: 10, exp: 120, speed: 38, w: 72, h: 60, kind: 'walker', aggro: 180, gold: [25, 45],
+  brute: { name: 'Iron Brute', lv: 9, hp: 500, atk: 50, def: 10, exp: 120, speed: 38, w: 72, h: 60, kind: 'walker', aggro: 180, pound: true, heavy: true, gold: [25, 45],
     drops: [['brute_plate', 0.5], ['med_m', 0.12], ['rift_plate', 0.02], ['combat_helm', 0.02]] },
   sovereign: { name: 'Rift Sovereign', lv: 12, hp: 14000, atk: 64, def: 12, exp: 1500, speed: 90, w: 130, h: 110, kind: 'boss', aggro: 9999, gold: [800, 1200],
     drops: [['sovereign_core', 1], ['med_m', 1], ['sovereign_crown', 0.35], ['sovereign_chip', 0.3]] },

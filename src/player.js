@@ -48,6 +48,7 @@ export function initRuntime(p) {
     invuln: 0, cd: {}, shield: 0, swapCd: 0,
     dead: false, potCd: 0, regenT: 0, walkT: 0, climbT: 0,
     hits: 0, hitT: 0, rank: 0, sync: 0, mounted: false,
+    dodgeCd: 0, airDashed: false, perfectWin: 0, counterT: 0, lastHitT: 99,
     botX: null, botY: null,
   });
 }
@@ -129,6 +130,10 @@ export function updatePlayer(dt) {
   p.potCd -= dt;
   p.comboWin -= dt;
   p.lastAtk += dt;
+  p.dodgeCd -= dt;
+  p.perfectWin -= dt;
+  p.counterT -= dt;
+  p.lastHitT += dt;
   G.sayCd = (G.sayCd || 0) - dt;
 
   // Combo meter timeout
@@ -176,6 +181,7 @@ export function updatePlayer(dt) {
     }
   }
   if (tapped('mount')) toggleMount(p);
+  if (tapped('dodge')) tryDodge(p, L, R);
 
   if (tapped('up') && p.onGround && !p.act && p.attackT <= 0) {
     if (tryPortal(p) || tryNpc(p)) return;
@@ -186,6 +192,7 @@ export function updatePlayer(dt) {
   else move(p, dt, L, R, U, D, jumpP);
 
   if (p.onGround && Math.abs(p.vx) > 30) p.walkT += dt;
+  if (p.onGround) p.airDashed = false;
 
   const type = typeOf(p);
   if (!p.act && !p.rope && p.attackT <= 0 && (tapped('attack') || held('attack'))) {
@@ -326,7 +333,7 @@ function tryNpc(p) {
 // ---------- Damage helpers ----------
 
 export function rollDamage(p, mult, m) {
-  let d = p.atk * mult * rand(0.88, 1.12) * (1 + RANKS[p.rank].dmg);
+  let d = p.atk * mult * rand(0.88, 1.12) * (1 + RANKS[p.rank].dmg) * (p.counterT > 0 ? 1.3 : 1);
   const crit = Math.random() < p.crit;
   if (crit) d *= 1.6;
   d = Math.max(1, Math.round(d - m.def));
@@ -351,6 +358,7 @@ function onScreen(m) {
 export function registerHit() {
   const p = G.player;
   p.hits++;
+  p.lastHitT = 0;
   p.hitT = COMBO_TIME;
   if (p.hits > p.bestCombo) p.bestCombo = p.hits;
   if (!p.act || p.act.type !== 'sync') p.sync = Math.min(100, p.sync + 1 + p.rank * 0.4);
@@ -540,7 +548,9 @@ function useSkill(p, i) {
   dismount(p);
   const bot = activeBot(p);
   const sk = botSkills(bot)[i];
-  if (!sk || p.dead || p.rope || p.act) return;
+  if (!sk || p.dead || p.rope) return;
+  // Skills can cancel the tail of a dodge; otherwise an action in progress blocks them.
+  if (p.act && !(isDodge(p.act) && p.act.t < p.act.cancelAt)) return;
   if (bot.lv < sk.unlock) {
     log(`${sk.name} unlocks when ${bot ? 'this nanobot' : 'your nanobot'} reaches level ${sk.unlock}.`, 'warn');
     return;
@@ -666,9 +676,104 @@ function useSync(p) {
   say('combo', true);
 }
 
+const isDodge = (a) => a && (a.type === 'roll' || a.type === 'airdash');
+
+// Dodge: a ground roll or (once per jump) an air dash, with brief invulnerability. It can cancel a basic
+// attack, Cyclone Edge, Overdrive, and the recovery of Ground Breaker.
+function tryDodge(p, L, R) {
+  if (p.dead || p.rope || p.dodgeCd > 0) return;
+  const a = p.act;
+  if (a && !(a.type === 'whirl' || a.type === 'overdrive' || (a.type === 'slam' && a.phase === 'recover'))) return;
+  if (!p.onGround && p.airDashed) return;
+  const dir = (R ? 1 : 0) - (L ? 1 : 0) || p.face;
+  p.face = dir;
+  dismount(p);
+  p.attackT = 0;
+  if (p.onGround) {
+    p.act = { type: 'roll', t: 0.34, dir, cancelAt: 0.2 };
+    p.invuln = Math.max(p.invuln, 0.28);
+    p.dodgeCd = 0.5;
+    burst(p.x, p.y, 'rgba(210,220,235,0.8)', 8, 120, { grav: 0, angle: dir > 0 ? Math.PI : 0, spread: 0.7 });
+  } else {
+    p.airDashed = true;
+    p.act = { type: 'airdash', t: 0.18, dir, cancelAt: 0.1 };
+    p.invuln = Math.max(p.invuln, 0.16);
+    p.dodgeCd = 0.3;
+    p.vy = 0;
+    burst(p.x, p.y - 30, botColor(activeBot(p)), 10, 160, { grav: 0, glow: true, angle: dir > 0 ? Math.PI : 0, spread: 0.4 });
+  }
+  p.perfectWin = 0.16;
+  p.perfectDone = false;
+  sfx('dash');
+}
+
+// Dodging through an attack at the last instant: slow-motion, Sync, and a short damage boost.
+function perfectDodge(p) {
+  p.perfectDone = true;
+  p.counterT = 1.5;
+  p.sync = Math.min(100, p.sync + 15);
+  G.slowT = 0.45;
+  addText(p.x, p.y - p.h - 20, 'PERFECT', 'crit');
+  effect({ type: 'ring', x: p.x, y: p.y - 30, r: 90, color: '#bff4ff', dur: 0.4, round: true });
+  sfx('rank');
+  say('combo', true);
+}
+
+// Swapping bots right after landing a hit: the incoming bot opens with a free attack.
+export function swapStrike(p) {
+  if (p.lastHitT > 0.6 || p.dead || p.rope) return;
+  const type = typeOf(p);
+  const color = botColor(activeBot(p));
+  const [ox, oy] = muzzle(p);
+  p.sync = Math.min(100, p.sync + 5);
+  p.lastAtk = 0;
+  addText(p.x, p.y - p.h - 24, 'SWAP STRIKE', 'info');
+  if (type === 'blade') {
+    const box = p.face > 0 ? { x1: p.x - 20, x2: p.x + 120, y1: p.y - 90, y2: p.y + 8 } : { x1: p.x - 120, x2: p.x + 20, y1: p.y - 90, y2: p.y + 8 };
+    for (const m of liveMobs()) if (overlaps(mobBox(m), box)) hitMob(p, m, 1.4, { knock: 200 });
+    effect({ type: 'slash', x: p.x + p.face * 44, y: p.y - 34, face: p.face, combo: 2, color, dur: 0.22 });
+    sfx('slash3');
+  } else if (type === 'blaster') {
+    const aim = autoAim(p, ox, oy, 260);
+    for (let k = 0; k < 5; k++) shot(ox, oy, aim + (k - 2) * 0.1, 760, { mult: 0.6, life: 0.34, r: 6, color, knock: 140 });
+    sfx('shoot');
+  } else if (type === 'sniper') {
+    shot(ox, oy, autoAim(p, ox, oy, 900), 2200, { mult: 1.8, life: 0.4, r: 7, color, pierce: 99, knock: 180, trail: true });
+    effect({ type: 'beam', x: ox, y: oy, face: p.face, color, dur: 0.2 });
+    sfx('snipe');
+  } else {
+    const heal = Math.round(p.maxHp * 0.06);
+    p.hp = Math.min(p.maxHp, p.hp + heal);
+    addText(p.x, p.y - 80, '+' + heal, 'heal');
+    for (const m of liveMobs()) if (Math.abs(m.x - p.x) < 130 && Math.abs(m.y - p.y) < 110) hitMob(p, m, 1.0, { knock: 160 });
+    effect({ type: 'ring', x: p.x, y: p.y - 30, r: 130, color, dur: 0.35, round: true });
+    sfx('heal');
+  }
+}
+
 function updateAct(p, dt, L, R) {
   const a = p.act;
   a.t -= dt;
+  if (a.type === 'roll') {
+    p.vx = a.dir * (a.t > 0.1 ? 520 : 200);
+    physics(p, dt);
+    if (Math.random() < 0.5) burst(p.x - a.dir * 8, p.y - 2, 'rgba(200,210,225,0.7)', 1, 60, { grav: 0 });
+    if (a.t <= 0) {
+      p.act = null;
+      p.vx = a.dir * 120;
+    }
+    return;
+  }
+  if (a.type === 'airdash') {
+    p.vy = 0;
+    p.x = clamp(p.x + a.dir * 760 * dt, p.w / 2 + 2, G.map.w - p.w / 2 - 2);
+    G.parts.push({ x: p.x - a.dir * 12, y: p.y - rand(10, 55), vx: -a.dir * 40, vy: 0, life: 0.22, t: 0, color: botColor(activeBot(p)), size: 3, grav: 0 });
+    if (a.t <= 0) {
+      p.act = null;
+      p.vx = a.dir * 220;
+    }
+    return;
+  }
   if (a.type === 'dash') {
     p.vy = 0;
     p.x = clamp(p.x + p.vx * dt, p.w / 2 + 2, G.map.w - p.w / 2 - 2);
@@ -762,9 +867,14 @@ function slamImpact(p, a) {
 
 // ---------- Damage taken, experience, death ----------
 
-export function hurtPlayer(raw, fromX) {
+// `attack` marks damage from a real enemy attack (not just touching a demon); only those count for perfect dodges.
+export function hurtPlayer(raw, fromX, attack = false) {
   const p = G.player;
-  if (p.invuln > 0 || p.dead) return;
+  if (p.dead) return;
+  if (p.invuln > 0) {
+    if (attack && isDodge(p.act) && p.perfectWin > 0 && !p.perfectDone) perfectDodge(p);
+    return;
+  }
   if (p.shield > 0) {
     addText(p.x, p.y - p.h - 12, 'BLOCK', 'info');
     sfx('block');

@@ -7,6 +7,7 @@ import { skillIcon } from './icons.js';
 const BUTTONS = [
   { a: 'attack', cls: 'attack', label: 'ATK' },
   { a: 'jump', cls: 'jump', label: 'JUMP' },
+  { a: 'dodge', cls: 'dodge', label: 'DODGE' },
   { a: 'skill1', cls: 'sk sk1', label: 'A' },
   { a: 'skill2', cls: 'sk sk2', label: 'S' },
   { a: 'skill3', cls: 'sk sk3', label: 'D' },
