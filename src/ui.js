@@ -65,6 +65,9 @@ export function initUI({ onNew, onContinue, hasSave }) {
   };
   fitStage();
   window.addEventListener('resize', fitStage);
+  // iOS home-screen apps apply safe-area insets after launch without a window resize,
+  // so refit whenever the stage itself changes size.
+  if (window.ResizeObserver) new ResizeObserver(fitStage).observe($('#stage'));
 
   G.hooks.log = log;
   G.hooks.banner = showBanner;
