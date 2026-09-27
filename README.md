@@ -58,10 +58,28 @@ On macOS, Ctrl+arrow can switch desktops, so use Z to attack.
 - **World:**
   - Act 1: Metro Central (hub) → Neon Alley → Line 9 Depot → Skyline Rooftops → The Rift Core (Rift Sovereign).
   - Act 2: The Rift Core's east gate → Shattered Mirror District (Lv 12–16) → the Glasshouse Rooftop duel with Rei → The Abyss Line (Lv 16–20) → Throne of Echoes (The Hollow Queen, Lv 22).
+  - Act 3: the Throne's back wall → Old GhostX Academy (Lv 20–24) → Skyrail Terminus (Lv 24–28) → Zero Point (Hollow Rei, Lv 30).
   - Gates with red bars are sealed until the story opens them.
 - **Story:** 10 quests from Captain Yoon across two acts, with cutscenes at key beats (letterboxed, pixel portraits, typewriter text, skippable). Each act ends with an ending screen and new unlocks.
 - **Rival:** Rei, an ex-GhostX hunter, duels you with a 3-hit slash combo, a dash strike, ground waves (jump them), and dodges of her own.
 - **The Hollow Queen:** the final boss. She uses row-sweeping void beams (change height or dodge), a gravity pull into a shockwave, shard rain, and mirror-wraith clones, adding a shard nova below 25% HP.
+- **Act 3 (Zero Point):** Rei steals the Hollow Queen's echo and turns hollow. The act has 5 story quests, 5 cutscenes and a true ending.
+  - New demons:
+    - Hollow Drones fire lasers.
+    - Echo Knights block frontal basic hits.
+    - Shade Sentinels telegraph an aim line before a heavy bolt.
+    - Hollow Brutes send a double shockwave.
+  - Final boss **Hollow Rei** combines Rei's moveset with the Queen's beam, a triple-dash storm, and drone summons.
+- **Twin Link partner:** unlocked by the first Act 3 quest. The nanobot in the next occupied slot after your active one fights beside you on its own at 45% of your attack, using its type's attack (medics heal you). It earns half your EXP.
+- **Rift Tower:** an endless mode on the Mission Terminal, unlocked by clearing Act 2.
+  - Floors scale about +12% per floor, and every 5th floor is a boss (Sovereign, Rei, Queen, Hollow Rei).
+  - Rewards are banked each floor. Continue (restoring 25% HP/EN) or cash out, and your best floor is recorded.
+  - Tower kills never count toward quests or the story.
+- **Legendary Forge** (Workshop): four mods crafted from Act 3 loot and the Hollow Heart, one per nanobot type. They change skills and add +10% nanobot power:
+  - Void Edge: dash rifts and combo waves.
+  - Starfall: cluster grenades and explosive Overdrive.
+  - Oblivion Rail: triple rail beams.
+  - Lifebloom: barrier on repair and healing drones.
 - **Side quests:** Grandma Soon (Metro Central), Little Min (Neon Alley) and Conductor Park (Line 9, later the Mirror District) give 6 side quests, with quest-only drops and exclusive cosmetic rewards.
 - **Act 2 demons:**
   - Mirror Wraiths fire 3-way shards and blink.

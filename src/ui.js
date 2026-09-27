@@ -5,16 +5,18 @@ import * as input from './input.js';
 import { itemIcon, skillIcon, botIcon } from './icons.js';
 import { useSlot, unequip, addItem, canAdd, countItem, quickPotion } from './items.js';
 import { recalc, revive, interactTarget } from './player.js';
-import { activeBot, botByUid, botName, botType, botColor, botPower, stageOf, botSkills, equipBot, unslot, swapTo, overclock, overclockCost, canOverclock, STAGE_LV } from './bots.js';
+import { activeBot, botByUid, botName, botType, botColor, botPower, stageOf, botSkills, equipBot, unslot, swapTo, overclock, overclockCost, canOverclock, partnerBot, STAGE_LV } from './bots.js';
 import { CHAINS, currentQuest, questState, questReady, questMarker, goalRows, acceptQuest, completeQuest, pickOptions } from './quests.js';
 import { log as fxLog } from './fx.js';
 import { MISSIONS, GRADES } from './data.js';
-import { startMission, missionLocked, remaining, fmtTime } from './missions.js';
+import { startMission, missionLocked, remaining, fmtTime, startTower, towerLocked, towerContinue, towerCashOut } from './missions.js';
 import { settings, updateSetting } from './settings.js';
 import { deleteSave } from './save.js';
 import { sfx, playMusic } from './audio.js';
 import { setRenderScale, buildLayers, drawPlayerPreview } from './render.js';
 import { playScene, cutsceneActive, frameCutscene } from './cutscene.js';
+import { installMod, removeMod, modsFor } from './workshop.js';
+import { LEGEND_RECIPES } from './data.js';
 import { tune, canTune, craft, canCraft, setBranch, branchesFor, branchOf, checkUnlocks, buyOutfit, wearOutfit, owns, unlockMet } from './workshop.js';
 import { RECIPES, TUNE_MAX, TUNE_BONUS, tuneCost, OUTFITS, UNLOCKS, RESPEC_COST } from './data.js';
 import { initTouch, refreshTouchSkills, applyTouchMode, touchEnabled, setAttackMode } from './touch.js';
@@ -74,10 +76,16 @@ export function initUI({ onNew, onContinue, hasSave }) {
     els.combo.querySelector('.c-rank').classList.add('pop');
   };
   G.hooks.missionResult = showResult;
+  G.hooks.towerChoice = (r) => setTimeout(() => showDialog('npc', `Floor ${r.floor} cleared`, `<div class="reward">+${r.gold.toLocaleString()} ${CURRENCY} · +${r.exp.toLocaleString()} EXP · ${r.qty}× ${esc(r.mat)}</div>
+    <p>Banked this run: <b>${r.banked.gold.toLocaleString()} ${CURRENCY}</b> and <b>${r.banked.exp.toLocaleString()} EXP</b>. Best floor: <b>${r.best}</b>.</p>
+    <p class="dim">Floor ${r.floor + 1}${(r.floor + 1) % 5 === 0 ? ' is a boss floor.' : ' is tougher.'} Continuing restores 25% HP and EN. Rewards so far are already yours.</p>`, [
+    { label: 'Continue', primary: true, fn: () => { closeDialog(); towerContinue(); } },
+    { label: 'Cash out', fn: () => { closeDialog(); towerCashOut(); } },
+  ]), 900);
   G.hooks.branchChoice = (b) => setTimeout(() => showBranchChoice(b, false), 1600);
   G.hooks.bossDown = (m) => {
     const p = G.player;
-    if (m.ex) return;
+    if (m.ex || m.tower) return;
     if (m.type === 'sovereign' && !p.storyDone) {
       p.storyDone = true;
       setTimeout(() => showEnding('act1'), 3500);
@@ -86,6 +94,9 @@ export function initUI({ onNew, onContinue, hasSave }) {
     } else if (m.type === 'queen' && !p.act2Done) {
       p.act2Done = true;
       setTimeout(() => playScene('queen_post', () => showEnding('act2')), 3200);
+    } else if (m.type === 'rei_hollow' && !p.act3Done) {
+      p.act3Done = true;
+      setTimeout(() => playScene('zero_post', () => showEnding('act3')), 3200);
     }
   };
   G.hooks.mapChanged = () => {
@@ -93,7 +104,8 @@ export function initUI({ onNew, onContinue, hasSave }) {
     els.miniName.textContent = G.map.def.name;
     // First visit to a story location plays its scene.
     const id = G.map.id;
-    const scene = id === 'mirror' ? 'mirror_enter' : id === 'abyss' ? 'abyss_enter' : id === 'duel' && G.boss ? 'rival_pre' : id === 'throne' && G.boss ? 'queen_pre' : null;
+    const scene = { mirror: 'mirror_enter', abyss: 'abyss_enter', academy: 'academy_enter', skyrail: 'skyrail_enter' }[id]
+      || (G.boss && { duel: 'rival_pre', throne: 'queen_pre', zero: 'zero_pre' }[id]) || null;
     if (scene) setTimeout(() => playScene(scene), 900);
   };
 
@@ -261,8 +273,9 @@ function buildSlots() {
   els.bots.innerHTML = p.slots.map((uid, i) => {
     const b = uid != null ? botByUid(uid) : null;
     if (!b) return `<div class="bslot empty"><b>${i + 1}</b></div>`;
-    return `<div class="bslot ${i === p.active ? 'on' : ''}" data-swap="${i}" data-bot="${b.uid}" style="--c:${botColor(b)}">
-      <img src="${botIcon(b.sp, stageOf(b)).url}" alt=""><b>${i + 1}</b></div>`;
+    const partner = countItem('link_module') && partnerBot(p)?.uid === b.uid;
+    return `<div class="bslot ${i === p.active ? 'on' : ''} ${partner ? 'partner' : ''}" data-swap="${i}" data-bot="${b.uid}" style="--c:${botColor(b)}">
+      <img src="${botIcon(b.sp, stageOf(b)).url}" alt=""><b>${partner ? 'P' : i + 1}</b></div>`;
   }).join('');
 }
 
@@ -542,7 +555,7 @@ function botsHTML() {
     return `<div class="bot-card" style="--c:${botColor(b)}" data-bot="${b.uid}">
       <img src="${botIcon(b.sp, stageOf(b)).url}" alt="">
       <div class="grow">
-        <div><b>${esc(botName(b))}</b> ${stars(b)} <span class="rar r${s.rarity}">${RARITY[s.rarity]}</span>${branchOf(b) ? ` <span class="tag">${branchOf(b).name}</span>` : ''}</div>
+        <div><b>${esc(botName(b))}</b> ${stars(b)} <span class="rar r${s.rarity}">${RARITY[s.rarity]}</span>${branchOf(b) ? ` <span class="tag">${branchOf(b).name}</span>` : ''}${b.mod ? ` <span class="rar r4">${esc(ITEMS[b.mod].name)}</span>` : ''}${partnerBot(p)?.uid === b.uid && countItem('link_module') ? ' <span class="tag">Partner</span>' : ''}</div>
         <small class="dim">${BOT_TYPES[s.type].name} · Lv ${b.lv}${nextEvo && stageOf(b) < 3 ? ` · evolves at ${nextEvo}` : ''} · Power +${Math.round(botPower(b))}</small>
         <div class="bexp"><div style="width:${expPct}%"></div></div>
       </div>
@@ -550,6 +563,8 @@ function botsHTML() {
         ${slotted >= 0 ? `<span class="tag">Slot ${slotted + 1}</span>` : [0, 1, 2].map((i) => `<button data-equipbot="${b.uid}" data-to="${i}">${i + 1}</button>`).join('')}
         ${stageOf(b) === 3 && !b.branch ? `<button class="primary" data-branchfor="${b.uid}">Choose branch</button>` : ''}
         ${labMode && b.branch ? `<button data-branchfor="${b.uid}" data-respec="1">Re-spec ${RESPEC_COST}</button>` : ''}
+        ${labMode && b.mod ? `<button data-uninstall="${b.uid}">Remove mod</button>` : ''}
+        ${labMode && !b.mod ? modsFor(b).map((id) => `<button class="primary" data-install="${b.uid}" data-mod="${id}">Install ${esc(ITEMS[id].name)}</button>`).join('') : ''}
         ${labMode && oc ? `<button class="primary" data-overclock="${b.uid}" ${canOverclock(b) ? '' : 'disabled'} title="${oc.gold} ${CURRENCY} + ${oc.items.map(([id, n]) => `${n}× ${ITEMS[id].name}`).join(' + ')}">Overclock ★${b.stars + 1}</button>` : ''}
       </div>
     </div>`;
@@ -632,6 +647,7 @@ function helpHTML() {
     <p><b>Dodging:</b> rolls and air dashes make you briefly invulnerable. Dodge an attack at the last instant for a <b>Perfect</b>: slow-motion, +15% Sync, and +30% damage for 1.5s. Swap nanobots right after a hit for a free <b>Swap Strike</b> from the incoming bot. Watch for the red <b>!</b>: that demon is about to attack.</p>
     <p><b>Combos:</b> keep hitting to climb the ranks from D to SSS for bonus EXP and damage. Getting hit breaks the combo. Hits fill the <b>Sync</b> gauge. At 100%, press F.</p>
     <p><b>Mission Terminal</b> (east side of Metro Central): repeatable wave operations graded S–C, with elite demons and better nanobot drops.</p>
+    <p><b>Act 3:</b> after the Hollow Queen, the throne's back wall opens onto the Old GhostX Academy and the Skyrail Terminus. The <b>Twin Link</b> (from the first Act 3 quest) makes the bot in your next slot fight beside you, shown as <b>P</b> in the HUD. The <b>Rift Tower</b> (Mission Terminal) is endless, and Tech Jin's <b>Legendary Forge</b> makes skill-changing mods. <b>Echo Knights</b> block basic hits from the front, so hit them from behind, or use skills and crits.</p>
     <p><b>Act 2:</b> after the Rift Sovereign falls, the Rift Core's east gate opens onto the Shattered Mirror District, the Abyss Line, and the Throne of Echoes. Sealed gates (red bars) open as the story progresses. Look for <b>!</b> over townsfolk for side quests.</p>
     <p class="dim">Route: Metro Central → Neon Alley → Line 9 Depot → Skyline Rooftops → Rift Core. Autosaves. On macOS, use Z instead of Ctrl to attack.</p>
   </div>`;
@@ -672,6 +688,15 @@ function onWinClick(id, e) {
     showBranchChoice(botByUid(+d.branchfor), d.respec === '1');
   } else if (d.overclock) {
     overclock(+d.overclock);
+  } else if (d.tower) {
+    closeWin('missions');
+    startTower();
+  } else if (d.install) {
+    installMod(+d.install, d.mod);
+  } else if (d.uninstall) {
+    removeMod(+d.uninstall);
+  } else if (d.legend !== undefined) {
+    craft(LEGEND_RECIPES[+d.legend]);
   } else if (d.launch) {
     closeWin('missions');
     startMission(d.launch);
@@ -763,7 +788,7 @@ function itemTip(id) {
   const p = G.player;
   const stats = [['def', 'Defense'], ['str', 'STR'], ['dex', 'DEX'], ['vit', 'VIT'], ['hp', it.type === 'use' ? 'Restores HP' : 'Max HP'], ['mp', 'Restores EN']]
     .filter(([k]) => it[k]).map(([k, l]) => `<div>${l} <b>+${it[k]}</b></div>`).join('');
-  const kind = it.type === 'equip' ? { head: 'Head', body: 'Body', chip: 'Chip' }[it.slot] : it.type === 'use' ? 'Consumable' : it.type === 'key' ? 'Key item' : 'Loot';
+  const kind = it.type === 'equip' ? { head: 'Head', body: 'Body', chip: 'Chip' }[it.slot] : it.type === 'use' ? 'Consumable' : it.type === 'key' ? 'Key item' : it.type === 'mod' ? `Legendary mod · ${BOT_TYPES[it.botType].name}` : 'Loot';
   return `<div class="t-name ${it.rare ? 'rare' : ''}">${esc(it.name)}</div><div class="dim">${kind}</div>
     ${it.lv ? `<div class="${p && p.lv < it.lv ? 'bad' : 'dim'}">Requires level ${it.lv}</div>` : ''}
     ${stats}<div class="t-desc">${esc(it.desc)}</div><div class="dim">Sells for ${sellPrice(id)} ${CURRENCY}</div>`;
@@ -921,7 +946,13 @@ function showDeath(loss) {
 
 function missionsHTML() {
   const p = G.player;
-  return `<div class="dim" style="margin-bottom:6px">GHOSTX TACTICAL NETWORK · Instanced operations. Clear every wave. Grade depends on time, damage taken and best combo.</div>` +
+  const tl = towerLocked();
+  const tower = `<div class="mission tower ${tl ? 'locked' : ''}"><div class="m-grade" style="color:#bff4ff">${p.towerBest || '–'}</div>
+    <div class="grow"><div><b>Rift Tower</b> <span class="dim">· endless · boss every 5 floors</span> <span class="rar r4">Endless</span></div>
+    <small class="dim">Climb as high as you can. Each cleared floor banks credits, EXP and materials. Continue or cash out between floors.</small>
+    <small>Best floor: ${p.towerBest || 0}</small></div>
+    ${tl ? `<small class="bad">${tl}</small>` : '<button class="primary" data-tower="1">Enter</button>'}</div>`;
+  return `<div class="dim" style="margin-bottom:6px">GHOSTX TACTICAL NETWORK · Instanced operations. Clear every wave. Grade depends on time, damage taken and best combo.</div>` + tower +
     MISSIONS.map((m) => {
       const lock = missionLocked(m);
       const rec = p.missions[m.id];
@@ -944,6 +975,10 @@ function updateTracker() {
   el.classList.toggle('hidden', !M || M.state === 'done');
   if (!M || M.state === 'done') return;
   const wave = Math.max(1, M.wave + 1);
+  if (M.tower) {
+    el.innerHTML = `<b>Rift Tower</b> · Floor ${M.floor}${M.state === 'fight' ? ` · ${remaining()} left` : ''} <span class="dim">· best ${G.player.towerBest || 0}</span>`;
+    return;
+  }
   el.innerHTML = `<b>${esc(M.def.name)}</b> · Wave ${wave}/${M.def.waves.length} · ${fmtTime(M.t)} <span class="dim">/ par ${fmtTime(M.def.par)}</span>${M.state === 'fight' ? ` · ${remaining()} left` : ''}`;
 }
 
@@ -1006,8 +1041,15 @@ const ENDINGS = {
     title: 'THE ECHOES FADE',
     text: `<p>The Hollow Queen breaks like glass. On both sides of the mirror, every rift reads zero. The folded district slowly empties of monsters.</p>
     <p>Somewhere on a rooftop, Rei is pretending she isn't smiling. Metro Central sleeps without an echo.</p>`,
-    unlock: 'Unlocked: <b>Hollow Throne EX</b> at the Mission Terminal, the <b>Hollow White</b> hair outfit, and the final mythic requisitions from Tech Jin.',
-    next: 'Report to Captain Yoon for the last debrief.',
+    unlock: 'Unlocked: <b>Act 3</b>, the <b>Rift Tower</b> and <b>Hollow Throne EX</b> at the Mission Terminal, the <b>Hollow White</b> hair outfit, and the final mythic requisitions from Tech Jin.',
+    next: 'Report to Captain Yoon. Something is wrong at the throne.',
+  },
+  act3: {
+    title: 'ZERO POINT',
+    text: `<p>The echo leaves Rei like a held breath. The white light at Zero Point goes still, and then goes out.</p>
+    <p>She wakes three days later in Dr. Mina's lab and asks who won. Your nanobots answer before you can.</p>`,
+    unlock: 'Unlocked: the <b>Zero White</b> jacket, and the Rift Tower goes on forever. Thank you for playing GhostX Solo.',
+    next: 'Report to Captain Yoon for the final debrief.',
   },
 };
 
@@ -1040,6 +1082,7 @@ function showEnding(which = 'act1') {
     playMusic(G.map.def.music || G.map.def.theme);
     G.hooks.save?.();
     if (which === 'act1') setTimeout(() => playScene('act2_intro'), 500);
+    if (which === 'act2') setTimeout(() => playScene('act3_intro'), 500);
   });
 }
 
@@ -1095,7 +1138,7 @@ const matList = (items) => items.map(([id, n]) => `<span class="${countItem(id) 
 
 function workshopHTML() {
   const p = G.player;
-  const tabs = `<div class="tabs"><button class="${workshopTab === 'tune' ? 'on' : ''}" data-wtab="tune">Slot Tuning</button><button class="${workshopTab === 'craft' ? 'on' : ''}" data-wtab="craft">Fabricator</button><span class="gold">${p.gold.toLocaleString()} ${CURRENCY}</span></div>`;
+  const tabs = `<div class="tabs"><button class="${workshopTab === 'tune' ? 'on' : ''}" data-wtab="tune">Slot Tuning</button><button class="${workshopTab === 'craft' ? 'on' : ''}" data-wtab="craft">Fabricator</button><button class="${workshopTab === 'legend' ? 'on' : ''}" data-wtab="legend">Legendary Forge</button><span class="gold">${p.gold.toLocaleString()} ${CURRENCY}</span></div>`;
   if (workshopTab === 'tune') {
     const rows = ['head', 'body', 'chip'].map((slot) => {
       const n = p.enh[slot];
@@ -1110,6 +1153,16 @@ function workshopHTML() {
       </div>`;
     }).join('');
     return tabs + `<div class="shop-list">${rows}</div><div class="hint">Tuning belongs to the slot, not the item, so it carries over when you change gear. From +4 up a tune can fail: the cost is spent, but the level never drops.</div>`;
+  }
+  if (workshopTab === 'legend') {
+    const rows = LEGEND_RECIPES.map((r, i) => {
+      const it = ITEMS[r.out];
+      const low = p.lv < r.lv;
+      return `<div class="row" data-item="${r.out}"><div class="cell rare"><img src="${itemIcon(r.out).url}" alt=""></div>
+        <div class="grow"><div>${esc(it.name)} <span class="rar r4">${BOT_TYPES[it.botType].name}</span> ${low ? `<small class="bad">Lv ${r.lv}</small>` : ''}</div><small class="dim">${esc(it.desc)}</small><br><small>${r.gold.toLocaleString()} ${CURRENCY} · ${matList(r.items)}</small></div>
+        <button class="primary" data-legend="${i}" ${canCraft(r) ? '' : 'disabled'}>Forge</button></div>`;
+    }).join('');
+    return tabs + `<div class="shop-list">${rows}</div><div class="hint">Install a legendary mod on a nanobot of the matching type at the Nano Lab. Each bot holds one mod, and a mod adds +10% nanobot power.</div>`;
   }
   const rows = RECIPES.map((r, i) => {
     const it = ITEMS[r.out];

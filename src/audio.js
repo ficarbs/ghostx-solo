@@ -135,6 +135,10 @@ const TRACKS = {
   abyss: { bpm: 104, root: 40, prog: [0, 1, 0, 5], lead: false, drums: 2 },
   throne: { bpm: 150, root: 42, prog: [0, 6, 1, 5], lead: true, drums: 3, boss: true },
   rival: { bpm: 146, root: 46, prog: [0, 3, 6, 5], lead: true, drums: 3 },
+  academy: { bpm: 110, root: 48, prog: [0, 4, 5, 3], lead: true, drums: 2 },
+  skyrail: { bpm: 126, root: 51, prog: [0, 5, 6, 4], lead: true, drums: 3 },
+  zero: { bpm: 156, root: 45, prog: [0, 1, 6, 5], lead: true, drums: 3, boss: true },
+  tower: { bpm: 138, root: 43, prog: [0, 6, 4, 5], lead: true, drums: 3 },
   scene: { bpm: 72, root: 50, prog: [0, 5, 3, 4], lead: false, drums: 0 },
 };
 const MINOR = [0, 2, 3, 5, 7, 8, 10];

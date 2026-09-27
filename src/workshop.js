@@ -92,6 +92,7 @@ export function unlockMet(key) {
   const p = G.player;
   if (key === 'story') return !!p.storyDone;
   if (key === 'act2') return !!p.act2Done;
+  if (key === 'act3') return !!p.act3Done;
   if (key === 'nanodex') return BOT_ORDER.every((sp) => p.seen.includes(sp));
   if (key === 'sss') return p.bestCombo >= 400;
   if (key === 'allS') return ['m1', 'm2', 'm3'].every((id) => p.missions[id]?.best === 'S');
@@ -134,3 +135,31 @@ export function wearOutfit(part, id) {
   G.hooks.save?.();
 }
 
+
+// ---------- Legendary mods ----------
+
+// Mod items in the bag that fit this bot's type.
+export const modsFor = (b) => [...new Set(G.player.inv.filter((s) => s && ITEMS[s.id].type === 'mod' && ITEMS[s.id].botType === botType(b)).map((s) => s.id))];
+
+export function installMod(uid, id) {
+  const b = botByUid(uid);
+  if (!b || b.mod || !countItem(id) || ITEMS[id].botType !== botType(b)) return;
+  removeItem(id, 1);
+  b.mod = id;
+  recalc(G.player);
+  sfx('evolve');
+  log(`Installed ${ITEMS[id].name} on ${botName(b)}.`, 'lvl');
+  G.dirty = true;
+  G.hooks.save?.();
+}
+
+export function removeMod(uid) {
+  const b = botByUid(uid);
+  if (!b?.mod) return;
+  if (!addItem(b.mod, 1)) return;
+  log(`Removed ${ITEMS[b.mod].name} from ${botName(b)}.`);
+  b.mod = null;
+  recalc(G.player);
+  G.dirty = true;
+  G.hooks.save?.();
+}

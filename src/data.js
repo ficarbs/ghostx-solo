@@ -428,8 +428,8 @@ Object.assign(MAPS, {
     name: 'Throne of Echoes', theme: 'throne', w: 1800, h: 760, floor: 700, lvText: 'Final Boss · Lv 22', music: 'throne',
     plats: [[240, 580, 280], [1280, 580, 280], [700, 460, 400]],
     ropes: [],
-    portals: [{ id: 'west', x: 90, to: 'abyss', tp: 'east' }],
-    boss: { type: 'queen', x: 1300 },
+    portals: [{ id: 'west', x: 90, to: 'abyss', tp: 'east' }, { id: 'east', x: 1710, to: 'academy', tp: 'west', need: 'act2' }],
+    boss: { type: 'queen', x: 1300, until: 'act2' },
     spawns: [],
   },
   arena_mirror: {
@@ -654,3 +654,150 @@ export const SIDE_QUESTS = {
   ],
 };
 ITEMS.toy_drone.questDrop = { quest: 's3', from: 'imp', chance: 0.15 };
+
+// ---------- Act 3: Zero Point ----------
+const arena3 = {
+  plats: [[180, 530, 300], [1120, 530, 300], [560, 420, 480], [220, 310, 260], [1120, 310, 260]],
+  ropes: [[1, 0.5], [2, 0.5], [3, 0.1], [3, 0.9], [4, 0.5], [5, 0.5]],
+  portals: [], spawnX: 800, spawns: [],
+};
+
+Object.assign(ITEMS, {
+  hollow_fragment: { name: 'Hollow Fragment', type: 'etc', icon: ['shard', '#e8e8ff'], sell: 120, desc: 'A sliver of a corrupted nanobot shell.' },
+  echo_plate: { name: 'Echo Plate', type: 'etc', icon: ['plate', '#9aa6c8'], sell: 150, desc: 'Armor that still remembers being struck.' },
+  sentinel_lens: { name: 'Sentinel Lens', type: 'etc', icon: ['orb', '#ff5a8a'], sell: 180, desc: 'It keeps trying to focus on you.' },
+  zero_core: { name: 'Zero Core', type: 'etc', icon: ['core', '#ffffff'], sell: 8000, rare: true, desc: 'Absolute stillness, held in your hand.' },
+  link_module: { name: 'Twin Link Module', type: 'key', icon: ['chip', '#ffd24a'], desc: 'Lets the nanobot in your next slot fight beside you on its own.' },
+  academy_visor: { name: 'Academy Visor', type: 'equip', slot: 'head', def: 18, dex: 5, lv: 22, sell: 3500, rare: true, icon: ['visor', '#40e0c0'], color: '#40e0c0', look: 'visor', desc: 'Standard issue, from when GhostX still trained its hunters.' },
+  sentinel_coat: { name: 'Sentinel Coat', type: 'equip', slot: 'body', def: 28, vit: 6, lv: 25, sell: 4500, rare: true, icon: ['jacket', '#5a2a4a'], color: '#5a2a4a', desc: 'The long coat of a skyrail watcher.' },
+  zero_chip: { name: 'Zero Chip', type: 'equip', slot: 'chip', str: 10, dex: 10, vit: 8, lv: 28, sell: 9000, rare: true, icon: ['chip', '#ffffff'], desc: 'Rei\'s chip, purified.' },
+  // Legendary nanobot mods (Workshop · Legendary Forge). Installed on one bot of the matching type.
+  mod_void_edge: { name: 'Void Edge', type: 'mod', botType: 'blade', rare: true, icon: ['sword', '#8a5aff'], sell: 5000, desc: 'Blade mod. Phase Dash leaves a void rift that keeps cutting, and your 3rd combo hit fires a slicing wave.' },
+  mod_starfall: { name: 'Starfall Launcher', type: 'mod', botType: 'blaster', rare: true, icon: ['cell', '#ffd24a'], sell: 5000, desc: 'Blaster mod. Frag Grenades burst into 3 bomblets, and Overdrive shots explode.' },
+  mod_oblivion: { name: 'Oblivion Rail', type: 'mod', botType: 'sniper', rare: true, icon: ['sword', '#ff5a8a'], sell: 5000, desc: 'Sniper mod. Rail Shot fires three parallel beams, and Evasion Shot pierces everything.' },
+  mod_lifebloom: { name: 'Lifebloom Core', type: 'mod', botType: 'medic', rare: true, icon: ['orb', '#6affa8'], sell: 5000, desc: 'Medic mod. Repair Pulse adds a 2s barrier, and your drones heal you as they hit.' },
+});
+export const MOD_POWER = 0.1; // a legendary mod also adds +10% nanobot power
+
+Object.assign(MOBS, {
+  hollow_drone: { name: 'Hollow Drone', lv: 21, hp: 1500, atk: 130, def: 26, exp: 520, speed: 70, w: 34, h: 34, kind: 'floater', aggro: 380, shoots: true, laser: true, gold: [60, 110],
+    drops: [['hollow_fragment', 0.45], ['med_m', 0.12], ['academy_visor', 0.008]] },
+  echo_knight: { name: 'Echo Knight', lv: 22, hp: 2600, atk: 150, def: 34, exp: 640, speed: 60, w: 46, h: 64, kind: 'walker', aggro: 260, shield: true, charge: true, gold: [70, 120],
+    drops: [['echo_plate', 0.45], ['cell_m', 0.12], ['academy_visor', 0.012]] },
+  shade_sentinel: { name: 'Shade Sentinel', lv: 25, hp: 2200, atk: 170, def: 30, exp: 800, speed: 55, w: 36, h: 50, kind: 'floater', aggro: 460, snipe: true, blink: true, gold: [80, 140],
+    drops: [['sentinel_lens', 0.45], ['med_m', 0.15], ['sentinel_coat', 0.012]] },
+  hollow_brute: { name: 'Hollow Brute', lv: 26, hp: 4200, atk: 190, def: 40, exp: 1000, speed: 45, w: 80, h: 68, kind: 'walker', aggro: 220, pound: true, double: true, heavy: true, gold: [100, 170],
+    drops: [['echo_plate', 0.35], ['hollow_fragment', 0.35], ['sentinel_coat', 0.01]] },
+  rei_hollow: { name: 'Hollow Rei', lv: 30, hp: 120000, atk: 200, def: 40, exp: 40000, speed: 175, w: 26, h: 58, kind: 'rival', hollow: true, aggro: 9999, gold: [8000, 10000],
+    drops: [['zero_core', 1], ['zero_chip', 0.5], ['med_m', 3]] },
+});
+
+Object.assign(MAPS, {
+  academy: {
+    name: 'Old GhostX Academy', theme: 'academy', w: 3200, h: 1000, floor: 940, lvText: 'Lv 20–24',
+    plats: [[150, 830, 500], [900, 830, 600], [1750, 830, 500], [2500, 830, 500],
+      [400, 715, 450], [1200, 720, 550], [2100, 715, 500],
+      [700, 600, 500], [1600, 600, 450], [2400, 605, 450]],
+    ropes: [[5, 0.15], [6, 0.85], [7, 0.5], [8, 0.2], [9, 0.6], [10, 0.8]],
+    portals: [{ id: 'west', x: 90, to: 'throne', tp: 'east' }, { id: 'east', x: 3110, to: 'skyrail', tp: 'west', need: 'q12done' }],
+    spawns: [['echo_knight', 0, 5], ['echo_knight', 1, 1], ['echo_knight', 2, 1], ['echo_knight', 3, 1], ['echo_knight', 4, 1],
+      ['hollow_drone', 5, 2], ['hollow_drone', 6, 2], ['hollow_drone', 7, 2], ['hollow_drone', 8, 1], ['hollow_drone', 9, 2], ['hollow_drone', 10, 1]],
+  },
+  skyrail: {
+    name: 'Skyrail Terminus', theme: 'skyrail', w: 3400, h: 1100, floor: 1040, lvText: 'Lv 24–28',
+    plats: [[200, 930, 600], [1050, 930, 700], [2000, 930, 600], [2800, 930, 450],
+      [450, 820, 500], [1300, 815, 600], [2250, 820, 550],
+      [250, 705, 450], [900, 700, 550], [1700, 700, 500], [2450, 705, 500],
+      [600, 590, 500], [1350, 585, 550], [2100, 590, 500]],
+    ropes: [[5, 0.1], [6, 0.9], [7, 0.5], [8, 0.8], [9, 0.3], [10, 0.5], [11, 0.7], [12, 0.2], [13, 0.5], [14, 0.8]],
+    portals: [{ id: 'west', x: 90, to: 'academy', tp: 'east' }, { id: 'east', x: 3310, to: 'zero', tp: 'west', need: 'q15' }],
+    spawns: [['hollow_brute', 0, 4], ['hollow_brute', 1, 1], ['hollow_brute', 2, 1], ['hollow_brute', 3, 1],
+      ['shade_sentinel', 5, 1], ['shade_sentinel', 6, 2], ['shade_sentinel', 7, 1], ['shade_sentinel', 8, 1], ['shade_sentinel', 9, 2],
+      ['shade_sentinel', 10, 1], ['shade_sentinel', 11, 1], ['shade_sentinel', 12, 1], ['shade_sentinel', 13, 2], ['shade_sentinel', 14, 1]],
+  },
+  zero: {
+    name: 'Zero Point', theme: 'zero', w: 1800, h: 760, floor: 700, lvText: 'Final Duel · Lv 30', music: 'zero',
+    plats: [[240, 580, 280], [1280, 580, 280], [700, 460, 400]],
+    ropes: [],
+    portals: [{ id: 'west', x: 90, to: 'skyrail', tp: 'east' }],
+    boss: { type: 'rei_hollow', x: 1300, until: 'act3' },
+    spawns: [],
+  },
+  arena_academy: { name: 'Op: Academy Lockdown', theme: 'academy', w: 1600, h: 700, floor: 640, lvText: 'Mission', instance: true, music: 'mission', ...arena3 },
+  arena_skyrail: { name: 'Op: Skyrail Siege', theme: 'skyrail', w: 1600, h: 700, floor: 640, lvText: 'Mission', instance: true, music: 'mission', ...arena3 },
+  arena_tower: { name: 'Rift Tower', theme: 'zero', w: 1600, h: 700, floor: 640, lvText: 'Endless', instance: true, music: 'tower', ...arena3 },
+});
+
+Object.assign(PORTAL_NEEDS, {
+  act2: 'The throne\'s back wall is still solid. Defeat the Hollow Queen first.',
+  q12done: 'The academy lockdown holds this door. Finish "Old Lessons" for Captain Yoon.',
+  q15: 'Zero Point opens when Captain Yoon sends you after Rei.',
+});
+
+MISSIONS.push(
+  { id: 'm9', name: 'Academy Lockdown', lv: 23, act3: true, arena: 'arena_academy', par: 140,
+    desc: 'The old training halls are overrun with hollow drones and knights. Clear three waves.',
+    waves: [[['hollow_drone', 5]], [['echo_knight', 3], ['hollow_drone', 3]], [['echo_knight', 2, 'elite'], ['hollow_drone', 3]]],
+    reward: { exp: 20000, gold: 9000, items: [['academy_visor', 0.2], ['hollow_fragment', 1]] } },
+  { id: 'm10', name: 'Skyrail Siege', lv: 27, act3: true, arena: 'arena_skyrail', par: 160,
+    desc: 'Sentinels on the rails, brutes on the platform. Hold the terminus.',
+    waves: [[['shade_sentinel', 4]], [['hollow_brute', 2], ['shade_sentinel', 3]], [['hollow_brute', 2, 'elite'], ['shade_sentinel', 3, 'elite']]],
+    reward: { exp: 32000, gold: 14000, items: [['sentinel_coat', 0.2], ['sentinel_lens', 1]] } },
+);
+
+QUESTS.push(
+  { id: 'q11', name: 'Stolen Echo', lv: 20,
+    goal: { kill: { hollow_drone: 10 } },
+    reward: { exp: 25000, gold: 8000, items: [['link_module', 1]] },
+    offer: 'The Queen\'s echo is gone from the throne, and so is Rei. Jin traced her to the old GhostX Academy, through the throne\'s back wall. The drones there used to be ours. Take down ten.',
+    progress: 'The Old GhostX Academy is through the Throne of Echoes\' east gate.',
+    done: 'Jin pulled this from a drone: a Twin Link module. Your next nanobot can fight beside you now. You\'ll need the help.' },
+  { id: 'q12', name: 'Old Lessons', lv: 22,
+    goal: { kill: { echo_knight: 8 }, collect: { echo_plate: 6 } },
+    reward: { exp: 32000, gold: 10000, items: [['stim', 5]] },
+    offer: 'Echo knights guard the academy doors. Their shields block anything from the front, so get behind them, use skills, or land crits. Eight knights, six plates.',
+    progress: 'Echo knights patrol the academy floors. Hit them from behind.',
+    done: 'The lockdown\'s broken. Rei went east, onto the Skyrail.' },
+  { id: 'q13', name: 'Rei\'s Trail', lv: 24,
+    goal: { kill: { shade_sentinel: 8 }, collect: { sentinel_lens: 5 } },
+    reward: { exp: 42000, gold: 12000, items: [['ward', 5]] },
+    offer: 'Sentinels watch the Skyrail for her. Blind them: eight sentinels, five lenses. Their shots are telegraphed, so watch for the line.',
+    progress: 'Shade sentinels float over the Skyrail Terminus.',
+    done: 'The lenses recorded her. She looks... wrong. Hollow.' },
+  { id: 'q14', name: 'Terminus', lv: 26,
+    goal: { kill: { hollow_brute: 6 } },
+    reward: { exp: 55000, gold: 15000, items: [['med_m', 20]] },
+    offer: 'Hollow brutes are holding the last platform. Their slam sends two shockwaves, so jump twice. Put down six.',
+    progress: 'Hollow brutes guard the Skyrail floors.',
+    done: 'The line to Zero Point is clear. Get some rest first.' },
+  { id: 'q15', name: 'Zero Point', lv: 28,
+    goal: { kill: { rei_hollow: 1 } },
+    reward: { exp: 80000, gold: 30000, items: [['zero_chip', 1]], outfits: ['acc_zero'] },
+    offer: 'Rei is at Zero Point, at the end of the Skyrail. She has the Queen\'s echo and it\'s eating her alive. Bring her back, hunter. However you have to.',
+    progress: 'Zero Point is past the Skyrail Terminus\' east gate.',
+    done: 'She\'s alive. Asleep, but alive. Jin purified her chip; it\'s yours. So is the city, hunter.' },
+);
+
+OUTFITS.acc.push({ id: 'acc_zero', name: 'Zero Crown', unlock: 'quest' });
+OUTFITS.jacket.push({ id: 'jacket_zero', name: 'Zero White', color: '#f4f4ff', unlock: 'act3' });
+UNLOCKS.act3 = 'Defeat Hollow Rei';
+
+// Legendary Forge recipes (Workshop tab). One mod per nanobot type.
+export const LEGEND_RECIPES = [
+  { out: 'mod_void_edge', lv: 22, gold: 30000, items: [['hollow_fragment', 20], ['echo_plate', 10], ['queen_heart', 1]] },
+  { out: 'mod_starfall', lv: 22, gold: 30000, items: [['hollow_fragment', 20], ['sentinel_lens', 10], ['queen_heart', 1]] },
+  { out: 'mod_oblivion', lv: 24, gold: 30000, items: [['sentinel_lens', 20], ['echo_plate', 10], ['queen_heart', 1]] },
+  { out: 'mod_lifebloom', lv: 24, gold: 30000, items: [['echo_plate', 20], ['hollow_fragment', 10], ['queen_heart', 1]] },
+];
+
+// Rift Tower: endless floors. Enemy pools by floor band; every 5th floor is a boss floor.
+export const TOWER = {
+  pools: [
+    { upTo: 5, mobs: ['imp', 'wisp', 'hound'] },
+    { upTo: 10, mobs: ['hound', 'specter', 'brute'] },
+    { upTo: 15, mobs: ['mirror_wraith', 'glass_stalker', 'echo_swarm', 'void_maw'] },
+    { upTo: 9999, mobs: ['hollow_drone', 'echo_knight', 'shade_sentinel', 'hollow_brute'] },
+  ],
+  bosses: ['sovereign', 'rei', 'queen', 'rei_hollow'],
+  scalePerFloor: 0.12,
+};

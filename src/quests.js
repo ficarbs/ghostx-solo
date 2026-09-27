@@ -16,6 +16,7 @@ export function conditionMet(key) {
   if (!p) return false;
   if (key === 'story') return !!p.storyDone;
   if (key === 'act2') return !!p.act2Done;
+  if (key === 'act3') return !!p.act3Done;
   const m = key.match(/^(q\d+)(done)?$/);
   if (m) {
     const st = p.quests[m[1]]?.status;

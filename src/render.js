@@ -6,7 +6,7 @@ import { itemIcon } from './icons.js';
 import { MELEE_TIME, portalOpen } from './player.js';
 import { questMarker } from './quests.js';
 import { outfitById } from './workshop.js';
-import { activeBot, botType, botColor, stageOf } from './bots.js';
+import { activeBot, partnerBot, botType, botColor, stageOf } from './bots.js';
 import { drawBot, drawWeapon } from './botart.js';
 import { crispen, silhouette } from './pixel.js';
 
@@ -31,6 +31,9 @@ const THEMES = {
   mirror: { sky: ['#06121c', '#1a3a54', '#7ab8d0'], far: '#1c3850', mid: '#14304a', ground: '#1a2a38', groundTop: '#bff4ff', plat: '#24405a', platTop: '#bff4ff', moon: '#ffffff', fog: 'rgba(190,240,255,0.06)' },
   abyss: { sky: ['#020008', '#0a0420', '#1a0a3a'], far: '#0e0624', mid: '#160a30', ground: '#0e0818', groundTop: '#8a5aff', plat: '#1a1030', platTop: '#8a5aff', underground: true, fog: 'rgba(120,80,255,0.07)' },
   throne: { sky: ['#05020a', '#1a0a2a', '#3a1a4a'], far: '#1c0e2c', mid: '#120820', ground: '#140c1c', groundTop: '#e8e8ff', plat: '#221430', platTop: '#e8e8ff', moon: '#f4f4ff', bigMoon: true, hollowMoon: true, fog: 'rgba(230,230,255,0.05)' },
+  academy: { sky: ['#040a10', '#0c2028', '#184048'], far: '#0e2a30', mid: '#0a2026', ground: '#121e22', groundTop: '#40e0c0', plat: '#1a2c30', platTop: '#40e0c0', underground: true, fog: 'rgba(64,224,192,0.05)' },
+  skyrail: { sky: ['#1a0a28', '#6a2a4a', '#f08a5a'], far: '#4a2240', mid: '#2e1430', ground: '#2a1a26', groundTop: '#ffb070', plat: '#3a2232', platTop: '#ffb070', moon: '#fff0d0', bigMoon: true, fog: 'rgba(255,170,120,0.05)' },
+  zero: { sky: ['#e8ecf4', '#c8ccd8', '#9aa0b4'], far: '#aab0c4', mid: '#8a90a4', ground: '#1a1a22', groundTop: '#ffffff', plat: '#2a2a36', platTop: '#ffffff', moon: '#10101a', bigMoon: true, fog: 'rgba(255,255,255,0.05)' },
   rift: { sky: ['#0a0208', '#3a0620', '#7a1040'], far: '#2a0616', mid: '#1a0410', ground: '#1e0e14', groundTop: '#ff2a6a', plat: '#2a1018', platTop: '#ff4a8a', moon: '#ff3a6a', bigMoon: true, fog: 'rgba(255,40,100,0.06)' },
 };
 
@@ -206,6 +209,25 @@ function buildFar(map, th, f, r) {
     }
     return L;
   }
+  if (theme === 'academy') {
+    // Lab halls: tiled wall with dim holo panels.
+    x.fillStyle = th.far; x.fillRect(0, 0, w, h);
+    x.strokeStyle = 'rgba(64,224,192,0.08)';
+    for (let yy = 0; yy < h; yy += 32) { x.beginPath(); x.moveTo(0, yy); x.lineTo(w, yy); x.stroke(); }
+    for (let i = 0; i < w; i += 32) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, h); x.stroke(); }
+    for (let i = 40; i < w; i += 240 + r() * 120) { x.fillStyle = 'rgba(64,224,192,0.12)'; x.fillRect(i, h * 0.25, 90, 50); x.fillStyle = 'rgba(64,224,192,0.35)'; x.fillRect(i + 8, h * 0.25 + 10, 50 + r() * 30, 4); x.fillRect(i + 8, h * 0.25 + 22, 30 + r() * 40, 4); }
+    return L;
+  }
+  if (theme === 'zero') {
+    // A white void cracked with black.
+    x.strokeStyle = 'rgba(10,10,20,0.5)'; x.lineWidth = 2;
+    for (let i = 0; i < w; i += 90 + r() * 140) {
+      let cx = i, cy = 0; x.beginPath(); x.moveTo(cx, cy);
+      while (cy < h) { cx += (r() - 0.5) * 60; cy += 30 + r() * 40; x.lineTo(cx, cy); }
+      x.stroke();
+    }
+    return L;
+  }
   if (theme === 'abyss') {
     // A void full of drifting rail fragments and motes.
     for (let i = 0; i < 160; i++) {
@@ -274,6 +296,21 @@ function buildMid(map, th, f, r) {
       x.beginPath(); x.moveTo(i, y); x.lineTo(i + s * 0.6, y - s); x.lineTo(i + s, y + s * 0.2); x.closePath(); x.fill(); x.stroke();
     }
     if (theme === 'mirror') skyline(x, w, base, 60, 160, r, th.mid, 0.06);
+    return L;
+  }
+  if (theme === 'skyrail') {
+    skyline(x, w, base + 40, 60, 180, r, th.mid, 0.06);
+    // Elevated rail viaduct.
+    x.fillStyle = '#1e0e22'; x.fillRect(0, h * 0.5, w, 14);
+    for (let i = 0; i < w; i += 160) x.fillRect(i, h * 0.5, 14, h);
+    return L;
+  }
+  if (theme === 'academy') {
+    for (let i = 60; i < w; i += 300 + r() * 160) { x.fillStyle = th.mid; x.fillRect(i, h * 0.35, 30, h); x.fillStyle = 'rgba(64,224,192,0.3)'; x.fillRect(i + 13, h * 0.35, 4, h); }
+    return L;
+  }
+  if (theme === 'zero') {
+    for (let i = 0; i < w; i += 70 + r() * 100) { const s = 6 + r() * 20; x.fillStyle = 'rgba(10,10,20,0.6)'; x.fillRect(i, h * (0.1 + r() * 0.7), s, s); }
     return L;
   }
   if (theme === 'abyss') {
@@ -371,6 +408,24 @@ function buildTerrain(map, th, r) {
       x.fillStyle = 'rgba(138,90,255,0.35)';
       for (let k = 0; k < 4; k++) x.fillRect(i + 90 + k * 80, F - 90, 50, 30);
     }
+  } else if (theme === 'academy') {
+    for (let i = 120; i < map.w; i += 420) {
+      // Training dummies and lab consoles.
+      x.fillStyle = '#2a3a3e'; x.fillRect(i, F - 60, 10, 60); x.beginPath(); x.arc(i + 5, F - 70, 12, 0, PI * 2); x.fill();
+      x.fillStyle = '#1a2a2e'; x.fillRect(i + 160, F - 50, 70, 50);
+      x.fillStyle = 'rgba(64,224,192,0.5)'; x.fillRect(i + 168, F - 42, 54, 16);
+    }
+  } else if (theme === 'skyrail') {
+    for (let i = 0; i < map.w; i += 700) {
+      x.fillStyle = '#4a2a3a'; x.fillRect(i + 100, F - 120, 420, 110);
+      x.fillStyle = 'rgba(255,200,140,0.35)'; for (let k = 0; k < 5; k++) x.fillRect(i + 120 + k * 80, F - 100, 50, 36);
+      x.fillStyle = '#2a1420'; x.fillRect(i + 100, F - 16, 420, 6);
+    }
+  } else if (theme === 'zero') {
+    const cx = map.w / 2 + 200;
+    x.fillStyle = '#ffffff'; x.beginPath(); x.arc(cx, F - 200, 90, 0, PI * 2); x.fill();
+    x.fillStyle = '#10101a'; x.beginPath(); x.arc(cx, F - 200, 70, 0, PI * 2); x.fill();
+    for (let i = 80; i < map.w; i += 240) { x.fillStyle = '#10101a'; x.fillRect(i, F - 40 - r() * 60, 8, 200); }
   } else if (theme === 'throne') {
     const cx = map.w / 2 + 200;
     x.fillStyle = '#1e1230'; x.fillRect(cx - 160, F - 40, 320, 40); x.fillRect(cx - 110, F - 80, 220, 40);
@@ -393,8 +448,8 @@ function buildTerrain(map, th, r) {
   if (theme === 'plaza' || theme === 'rooftop') {
     x.strokeStyle = 'rgba(255,255,255,0.06)';
     for (let i = 0; i < map.w; i += 48) { x.beginPath(); x.moveTo(i, F + 7); x.lineTo(i, F + 30); x.stroke(); }
-  } else if (theme === 'rift' || theme === 'abyss' || theme === 'mirror') {
-    const cc = theme === 'rift' ? '#ff2a6a' : theme === 'abyss' ? '#8a5aff' : '#bff4ff';
+  } else if (['rift', 'abyss', 'mirror', 'academy', 'zero'].includes(theme)) {
+    const cc = { rift: '#ff2a6a', abyss: '#8a5aff', mirror: '#bff4ff', academy: '#40e0c0', zero: '#ffffff' }[theme];
     x.strokeStyle = cc;
     x.shadowColor = cc;
     x.shadowBlur = 8;
@@ -1178,6 +1233,12 @@ function drawEffect(e) {
         ctx.fillText('!', e.x, e.y);
       });
       break;
+    case 'aim':
+      ctx.globalAlpha = 0.35 + 0.4 * Math.sin(e.t * 26);
+      ctx.strokeStyle = '#ff3a6a';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(e.x1, e.y1); ctx.lineTo(e.x1 + (e.x2 - e.x1) * 3, e.y1 + (e.y2 - e.y1) * 3); ctx.stroke();
+      break;
     case 'hbeam':
       if (e.warn) {
         ctx.globalAlpha = 0.25 + 0.25 * Math.sin(e.t * 28);
@@ -1328,6 +1389,7 @@ function drawPlayer(p) {
     ctx.restore();
   }
   drawCompanion(p, type, stage, color, t);
+  drawPartner(p, t);
   nameTag(p.name, p.x, p.y + 6, '#fff', 'rgba(20,60,120,0.8)');
 }
 
@@ -1486,6 +1548,25 @@ function drawPlayerBody(q, type, stage, color, look) {
   }
 }
 
+// Twin Link partner: its own nanobot flying beside you (see updatePartner in player.js).
+function drawPartner(p, t) {
+  const st = p.pt;
+  const pb = st && partnerBot(p);
+  if (!pb) return;
+  const type = botType(pb), stage = stageOf(pb), color = botColor(pb), rar = BOTS[pb.sp].rarity;
+  const g = ctx.createRadialGradient(st.x, st.y, 1, st.x, st.y, 20);
+  g.addColorStop(0, hexA(color, 0.5));
+  g.addColorStop(1, hexA(color, 0));
+  ctx.fillStyle = g;
+  ctx.fillRect(st.x - 20, st.y - 20, 40, 40);
+  const f = Math.floor(t * 5) % 2;
+  const spr = bake(`B|${type}|${stage}|${rar}|${f}|0.85`, [-34, -34, 68, 68], () => {
+    ctx.scale(0.85, 0.85);
+    drawBot(ctx, type, stage, color, f ? 0.16 : 0, rar, true);
+  });
+  blit(spr, st.x, st.y, st.face || p.face);
+}
+
 function drawCompanion(p, type, stage, color, t) {
   if (p.botX == null) return;
   const sync = p.act?.type === 'sync';
@@ -1515,8 +1596,9 @@ const MOB_BOX = {
   specter: [-26, -76, 64, 90], brute: [-38, -112, 84, 116], sovereign: [-172, -188, 294, 196],
   mirror_wraith: [-32, -84, 72, 98], glass_stalker: [-40, -78, 84, 82], echo_swarm: [-28, -44, 56, 48],
   void_maw: [-54, -86, 108, 90], rei: [-76, -128, 170, 144], queen: [-130, -210, 260, 222],
+  hollow_drone: [-30, -44, 60, 48], echo_knight: [-44, -84, 92, 88], shade_sentinel: [-44, -66, 96, 72], hollow_brute: [-42, -116, 92, 120], rei_hollow: [-76, -128, 170, 144],
 };
-const MOB_GLOW = { wisp: 'rgba(255,80,220,', specter: 'rgba(110,90,255,', mirror_wraith: 'rgba(190,240,255,', echo_swarm: 'rgba(138,90,255,', queen: 'rgba(200,200,255,' };
+const MOB_GLOW = { wisp: 'rgba(255,80,220,', specter: 'rgba(110,90,255,', mirror_wraith: 'rgba(190,240,255,', echo_swarm: 'rgba(138,90,255,', queen: 'rgba(200,200,255,', hollow_drone: 'rgba(255,60,80,', shade_sentinel: 'rgba(255,90,140,', rei_hollow: 'rgba(240,240,255,' };
 
 function drawMob(m) {
   let rise = 0, alpha = 1;
@@ -1765,7 +1847,7 @@ const MOB_DRAW = {
     for (let i = 0; i < 4; i++) ctx.fillRect(-30 + i * 12, -66 + (i % 2) * 4, 4, 4);
     eyes(-6, 4, -58, m.aggro ? '#c89aff' : '#5a3a8a', 3);
   },
-  rei(m) {
+  rei(m, look = { jacket: '#b8203a', hair: '#f4f4ff', acc: 'acc_rei', head: '' }, color = '#ff8ac8') {
     // Rei is drawn with the player's body: red coat, white hair, her ribbon, and a pink energy blade.
     const f = Math.floor(m.anim * 8) % 16;
     const a = m.atk;
@@ -1776,10 +1858,11 @@ const MOB_DRAW = {
       q.bob = Math.round(Math.abs(Math.cos(ph))) * 2;
     }
     if (m.st === 'slash') q.w = a?.phase === 'hit' ? { ang: 1.0, ext: 4 } : { ang: -1.8, ext: 0 };
-    if (m.st === 'dash') { q.lean = 0.3; q.w = { ang: 0.05, ext: 8 }; }
+    if (m.st === 'dash' || m.st === 'storm') { q.lean = 0.3; q.w = { ang: 0.05, ext: 8 }; }
+    if (m.st === 'beam' || m.st === 'summon') q.w = { ang: -1.4, ext: 0 };
     if (m.st === 'wave') q.w = a?.phase === 'hit' ? { ang: 0.4, ext: 6 } : { ang: -1.2, ext: 0 };
     if (m.st === 'dodge') { q.spin = (f % 8) * (PI / 4); q.w = null; }
-    drawPlayerBody(q, 'blade', 3, '#ff8ac8', { jacket: '#b8203a', hair: '#f4f4ff', acc: 'acc_rei', head: '' });
+    drawPlayerBody(q, 'blade', 3, color, look);
   },
   queen(m) {
     const t = m.anim;
@@ -1821,6 +1904,71 @@ const MOB_DRAW = {
       ctx.fillStyle = '#e8fbff';
       ctx.fillRect(Math.cos(a) * 80 - 3, -90 + Math.sin(a) * 30 - 5, 6, 10);
     }
+  },
+  hollow_drone(m) {
+    // A corrupted nanobot: dark shell, red eye, cracked white seams.
+    drawBot(ctx, 'blaster', 2, '#ff3a4a', m.anim, 4, true);
+    ctx.fillStyle = '#e8e8ff';
+    ctx.fillRect(-8, -2, 2, 6); ctx.fillRect(5, -8, 2, 5);
+  },
+  echo_knight(m) {
+    const moving = Math.abs(m.vx) > 5;
+    const l = moving ? Math.sin(m.anim * 8) * 4 : 0;
+    const crouch = m.windup > 0 ? 4 : 0;
+    ctx.fillStyle = '#3a4258';
+    ctx.fillRect(-10 + l, -22, 8, 22); ctx.fillRect(4 - l, -22, 8, 22);
+    ctx.fillStyle = '#5a6488';
+    ctx.fillRect(-14, -58 + crouch, 28, 38);
+    ctx.fillStyle = '#8a94b8';
+    ctx.beginPath(); ctx.arc(0, -66 + crouch, 11, 0, PI * 2); ctx.fill();
+    ctx.fillStyle = '#10141c'; ctx.fillRect(-2, -68 + crouch, 12, 3);
+    eyes(4, null, -68 + crouch, m.aggro ? '#c8d8ff' : '#5a6488', 3);
+    // Tower shield in front.
+    ctx.fillStyle = '#9aa6c8';
+    ctx.fillRect(14, -64 + crouch, 12, 52);
+    ctx.fillStyle = '#c8d8ff';
+    ctx.fillRect(18, -56 + crouch, 4, 36);
+    // Spear
+    ctx.fillStyle = '#c8d8ff';
+    ctx.fillRect(-2, -44 + crouch, m.charging ? 46 : 30, 3);
+  },
+  shade_sentinel(m) {
+    // A floating eye on a long rifle.
+    ctx.fillStyle = '#2a1428';
+    ctx.beginPath(); ctx.ellipse(0, -28, 16, 18, 0, 0, PI * 2); ctx.fill();
+    ctx.fillStyle = '#f4f4ff';
+    ctx.beginPath(); ctx.arc(4, -30, 9, 0, PI * 2); ctx.fill();
+    ctx.fillStyle = m.casting > 0 ? '#ff2a5a' : '#5a1a3a';
+    ctx.beginPath(); ctx.arc(6, -30, 4, 0, PI * 2); ctx.fill();
+    ctx.fillStyle = '#4a2a40';
+    ctx.fillRect(10, -20, 34, 5);
+    ctx.fillStyle = '#ff5a8a';
+    ctx.fillRect(42, -20, 4, 5);
+    ctx.strokeStyle = '#2a1428'; ctx.lineWidth = 3;
+    for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(i * 6, -12); ctx.lineTo(i * 8, 2 + Math.sin(m.anim * 5 + i) * 3); ctx.stroke(); }
+  },
+  hollow_brute(m) {
+    const moving = Math.abs(m.vx) > 5;
+    const l = moving ? Math.sin(m.anim * 7) * 4 : 0;
+    ctx.fillStyle = '#14101c';
+    ctx.fillRect(-22 + l, -22, 16, 22); ctx.fillRect(6 - l, -22, 16, 22);
+    ctx.fillStyle = '#231a30';
+    roundRect(-32, -60, 64, 42, 10);
+    ctx.fill();
+    ctx.strokeStyle = '#e8e8ff'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-20, -56); ctx.lineTo(-8, -40); ctx.lineTo(-14, -26); ctx.moveTo(10, -58); ctx.lineTo(18, -36); ctx.stroke();
+    ctx.fillStyle = '#231a30';
+    ctx.beginPath(); ctx.arc(12, -66, 13, 0, PI * 2); ctx.fill();
+    ctx.fillStyle = '#f4f4ff';
+    ctx.beginPath(); ctx.ellipse(16, -68, 7, 9, 0, 0, PI * 2); ctx.fill();
+    eyes(14, null, -70, m.aggro ? '#ff3a6a' : '#5a5a6a', 3);
+    ctx.fillStyle = '#3a2a48';
+    if (m.windup > 0) { roundRect(4, -116, 22, 22, 4); ctx.fill(); ctx.fillRect(10, -96, 10, 34); }
+    else { roundRect(24, -46, 18, 18, 4); ctx.fill(); }
+  },
+  rei_hollow(m) {
+    // Rei, hollowed out by the Queen's echo: white hair, black coat, a void-black blade.
+    MOB_DRAW.rei(m, { jacket: '#14101c', hair: '#ffffff', acc: 'acc_rei', head: '' }, '#e8e8ff');
   },
   sovereign(m) {
     const t = m.anim;

@@ -10,7 +10,7 @@ const VICTORY = {
   rei: ['DUEL WON', 'Rei lowers her blade.'],
   queen: ['VICTORY', 'The Hollow Queen is silenced.'],
 };
-import { gainBotExp, say } from './bots.js';
+import { gainBotExp, say, partnerBot } from './bots.js';
 import { onKill } from './quests.js';
 import { sfx } from './audio.js';
 
@@ -23,6 +23,9 @@ export function spawnMob(type, plat, x, opts = {}) {
   const k = opts.ex ? { hp: 3.2, atk: 1.7, def: 2, exp: 4, gold: 3, drop: 1, size: 1.1, lv: 8 }
     : opts.elite ? { hp: 3, atk: 1.3, def: 1.5, exp: 3, gold: 3, drop: 2.5, size: 1.25, lv: 2 }
     : { hp: 1, atk: 1, def: 1, exp: 1, gold: 1, drop: 1, size: 1, lv: 0 };
+  // opts.scale: Rift Tower floor multiplier on HP, attack, defense and rewards.
+  const sc = opts.scale || 1;
+  if (sc !== 1) Object.assign(k, { hp: k.hp * sc, atk: k.atk * (1 + (sc - 1) * 0.6), def: k.def * (1 + (sc - 1) * 0.5), exp: k.exp * sc, gold: k.gold * sc, lv: k.lv + Math.round((sc - 1) * 8) });
   const m = {
     id: ++uid, type, d, plat,
     x, y: floating ? plat.y - rand(40, 70) : plat.y,
@@ -33,6 +36,7 @@ export function spawnMob(type, plat, x, opts = {}) {
     goldMul: k.gold, dropMul: k.drop, lv: d.lv + k.lv,
     name: opts.ex ? d.name + ' EX' : opts.elite ? 'Elite ' + d.name : d.name,
     elite: !!opts.elite, ex: !!opts.ex,
+    tower: !!opts.tower, // Rift Tower spawns never advance quests or the story
     face: Math.random() < 0.5 ? -1 : 1,
     alive: true, deadT: 0, aggro: false,
     state: 'idle', t: rand(0.5, 2.5),
@@ -54,6 +58,12 @@ export function damageMob(m, dmg, crit, dir, opts = {}) {
     // Rei's dodge: the hit whiffs.
     addText(m.x, m.y - m.h - 8, 'MISS', 'info');
     return;
+  }
+  // Echo knights block basic attacks from the front (skills, crits and hits from behind get through).
+  if (m.d.shield && opts.basic && !crit && !m.charging && dir === -m.face) {
+    dmg = Math.max(1, Math.round(dmg * 0.2));
+    addText(m.x, m.y - m.h - 20, 'BLOCK', 'info');
+    burst(m.x + m.face * 20, m.y - m.h / 2, '#c8d8ff', 6, 140, { grav: 0, glow: true });
   }
   m.hp -= dmg;
   m.flash = 0.12;
@@ -89,10 +99,14 @@ function killMob(m) {
   const exp = Math.round(m.exp * (1 + RANKS[p.rank].exp));
   gainExp(exp);
   gainBotExp(exp);
+  if (countItem('link_module')) {
+    const pb = partnerBot(p);
+    if (pb) gainBotExp(Math.round(exp * 0.5), pb);
+  }
   dropLoot(m);
   burst(m.x, m.y - m.h / 2, m.type === 'wisp' ? '#ff5af0' : '#ff8a6a', 18, 220, { grav: -60, glow: true });
   if (Math.random() < 0.25) say('kill');
-  onKill(m.type);
+  if (!m.tower) onKill(m.type);
   if (m.big) {
     G.boss = null;
     shake(20);
@@ -359,6 +373,14 @@ function releaseAttack(m) {
     effect({ type: 'ring', x: m.x, y: m.y, r: 170, color: '#ffa030', dur: 0.4 });
     burst(m.x, m.y, '#a8a0a0', 20, 280, { up: -160, grav: 900 });
     if (!p.dead && p.onGround && Math.abs(p.y - m.y) < 20 && Math.abs(p.x - m.x) < 170) hurtPlayer(m.atkv * 1.3, m.x, true);
+    // Hollow brutes slam twice: a second, wider wave follows.
+    if (m.d.double) G.timers.push({ t: 0.5, fn: () => {
+      if (!m.alive) return;
+      shake(8);
+      sfx('slam');
+      effect({ type: 'ring', x: m.x, y: m.y, r: 230, color: '#e8e8ff', dur: 0.4 });
+      if (!p.dead && p.onGround && Math.abs(p.y - m.y) < 20 && Math.abs(p.x - m.x) < 230) hurtPlayer(m.atkv * 1.2, m.x, true);
+    } });
   }
 }
 
@@ -429,6 +451,26 @@ function updateFloater(m, dt) {
       m.y += (dy / dist) * sp * dt;
     }
   }
+  // Shade sentinels: a visible aim line locks on, then a fast heavy bolt.
+  if (m.d.snipe && m.aggro) {
+    m.atkCd -= dt;
+    if (m.aimT > 0) {
+      m.aimT -= dt;
+      m.casting = m.aimT;
+      if (m.aimT <= 0) {
+        const a = Math.atan2(m.aimY - (m.y - m.h / 2), m.aimX - m.x);
+        G.projs.push({ x: m.x, y: m.y - m.h / 2, vx: Math.cos(a) * 950, vy: Math.sin(a) * 950, r: 9, dmg: m.atkv * 1.6, color: '#ff5a8a', t: 0, life: 2 });
+        sfx('snipe');
+        m.atkCd = rand(2.6, 3.4);
+      }
+    } else if (m.atkCd <= 0 && Math.abs(p.x - m.x) < 560) {
+      m.aimT = 0.9;
+      m.aimX = p.x;
+      m.aimY = p.y - 30;
+      effect({ type: 'aim', x1: m.x, y1: m.y - m.h / 2, x2: p.x, y2: p.y - 30, dur: 0.9 });
+      sfx('warn');
+    }
+  }
   if (m.d.shoots && m.aggro) {
     m.atkCd -= dt;
     if (m.atkCd <= 0 && Math.abs(p.x - m.x) < 450) {
@@ -438,7 +480,8 @@ function updateFloater(m, dt) {
       const n = m.d.spread ? 3 : 1;
       for (let i = 0; i < n; i++) {
         const a = Math.atan2(p.y - 30 - (m.y - m.h / 2), p.x - m.x) + (i - (n - 1) / 2) * 0.22;
-        G.projs.push({ x: m.x, y: m.y - m.h / 2, vx: Math.cos(a) * 260, vy: Math.sin(a) * 260, r: 8, dmg: m.atkv * 0.9, color: m.d.spread ? '#bff4ff' : '#b8a8ff', t: 0, life: 3 });
+        const sp = m.d.laser ? 560 : 260;
+        G.projs.push({ x: m.x, y: m.y - m.h / 2, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: m.d.laser ? 6 : 8, dmg: m.atkv * 0.9, color: m.d.laser ? '#ff3a4a' : m.d.spread ? '#bff4ff' : '#b8a8ff', t: 0, life: 3 });
       }
     }
   }
@@ -474,7 +517,9 @@ function updateRival(m, dt) {
       m.st = 'dodge'; m.atk = { t: 0.35, dir: -Math.sign(dx) || 1 }; m.invuln = 0.35; m.dodgeCd = hpf < 0.5 ? 1.6 : 2.4;
       sfx('dash');
     } else if (m.aiT <= 0 && !p.dead) {
-      if (adx < 120) { m.st = 'slash'; m.atk = { t: 0.9, hits: 0, phase: 'wind' }; }
+      const hollowMove = m.d.hollow ? pickHollowMove(m, hpf) : null;
+      if (hollowMove) startHollowMove(m, hollowMove, p);
+      else if (adx < 120) { m.st = 'slash'; m.atk = { t: 0.9, hits: 0, phase: 'wind' }; }
       else if (Math.random() < 0.5) { m.st = 'dash'; m.atk = { t: 0.75, phase: 'wind' }; effect({ type: 'alert', x: m.x, y: m.y - 80, dur: 0.35 }); }
       else { m.st = 'wave'; m.atk = { t: 0.6, fired: false, phase: 'wind' }; effect({ type: 'alert', x: m.x, y: m.y - 80, dur: 0.4 }); }
     }
@@ -511,12 +556,76 @@ function updateRival(m, dt) {
       for (let i = 0; i < n; i++) G.projs.push({ x: m.x + m.face * 30, y: floor - 18, vx: m.face * (420 + i * 160), vy: 0, r: 14, dmg: m.atkv, color: '#ff8ac8', t: 0, life: 3 });
     }
     if (a.t <= 0) endRival(m);
+  } else if (m.st === 'beam') {
+    m.vx = 0;
+    a.t -= dt;
+    if (!a.fired && a.t <= 0.3) {
+      a.fired = true;
+      a.phase = 'hit';
+      effect({ type: 'hbeam', y: a.y, dur: 0.35 });
+      shake(10);
+      sfx('sync');
+      if (!p.dead && Math.abs(p.y - 30 - a.y) < 34) hurtPlayer(m.atkv * 1.4, m.x, true);
+    }
+    if (a.t <= 0) endRival(m);
+  } else if (m.st === 'storm') {
+    // Three dashes in a row, turning to face you between each.
+    a.t -= dt;
+    a.leg -= dt;
+    if (a.leg <= 0) {
+      a.n++;
+      a.leg = 0.42;
+      m.face = Math.sign(dx) || m.face;
+      effect({ type: 'alert', x: m.x, y: m.y - 80, dur: 0.18 });
+      sfx('dash');
+    }
+    if (a.leg < 0.3) {
+      m.x = clamp(m.x + m.face * 900 * dt, m.w, map.w - m.w);
+      m.charging = true;
+      if (Math.random() < 0.8) G.parts.push({ x: m.x - m.face * 10, y: m.y - rand(10, 55), vx: -m.face * 60, vy: 0, life: 0.25, t: 0, color: '#e8e8ff', size: 3, grav: 0 });
+    } else m.charging = false;
+    if (a.n >= 3 && a.leg <= 0.05) { m.charging = false; endRival(m); }
+  } else if (m.st === 'summon') {
+    m.vx = 0;
+    a.t -= dt;
+    if (!a.fired && a.t <= 0.4) {
+      a.fired = true;
+      for (let i = 0; i < 2; i++) {
+        const d = spawnMob('hollow_drone', map.plats[0], clamp(m.x + (i ? 220 : -220), 80, map.w - 80));
+        d.summoned = true;
+        d.aggro = true;
+        d.y = floor - 150;
+        burst(d.x, d.y, '#e8e8ff', 16, 180, { glow: true, grav: 0 });
+      }
+      sfx('portal');
+    }
+    if (a.t <= 0) endRival(m);
   } else if (m.st === 'dodge') {
     a.t -= dt;
     m.x = clamp(m.x + a.dir * 520 * dt, m.w, map.w - m.w);
     if (a.t <= 0) { m.st = 'move'; m.atk = null; m.aiT = 0.25; }
   }
   if (m.st === 'move') m.x = clamp(m.x + m.vx * dt, m.w, map.w - m.w);
+}
+
+// Hollow Rei's extra moves: the Queen's beam, a triple-dash storm, and hollow-drone summons.
+function pickHollowMove(m, hpf) {
+  const r = Math.random();
+  if (hpf < 0.3 && r < 0.3) return 'storm';
+  if (hpf < 0.6 && r < 0.25) return 'beam';
+  if (hpf < 0.8 && r < 0.12 && G.mobs.filter((o) => o.alive && o.summoned).length < 2) return 'summon';
+  return null;
+}
+
+function startHollowMove(m, move, p) {
+  m.st = move;
+  if (move === 'beam') {
+    m.atk = { t: 1.05, fired: false, y: p.y - 30, phase: 'wind' };
+    effect({ type: 'hbeam', y: p.y - 30, dur: 0.75, warn: true });
+    sfx('warn');
+  } else if (move === 'storm') {
+    m.atk = { t: 1.4, leg: 0, n: 0, phase: 'go' };
+  } else m.atk = { t: 0.9, fired: false };
 }
 
 function endRival(m) {

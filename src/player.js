@@ -7,7 +7,7 @@ import { addText, burst, shake, log, effect, banner, rand, clamp } from './fx.js
 import { damageMob } from './mobs.js';
 import { quickPotion, countItem } from './items.js';
 import { sfx } from './audio.js';
-import { activeBot, botPower, botType, botSkills, botColor, botName, swapTo, newBot, say } from './bots.js';
+import { activeBot, partnerBot, botPower, botType, botSkills, botColor, botName, swapTo, newBot, say } from './bots.js';
 
 export const MELEE_TIME = 0.32;
 const COMBO = [
@@ -26,7 +26,7 @@ export function createPlayer(name, starter = 'kira') {
     inv: Array(INV_SIZE).fill(null),
     quests: {},
     bots: [], slots: [null, null, null], active: 0, seen: [starter], bestCombo: 0,
-    missions: {}, storyDone: false, act2Done: false, scenes: {}, playTime: 0,
+    missions: {}, storyDone: false, act2Done: false, act3Done: false, towerBest: 0, scenes: {}, playTime: 0,
     enh: { head: 0, body: 0, chip: 0 },
     style: { hair: 'hair_black', jacket: 'jacket_gear', acc: 'acc_none' },
     owned: ['hair_black', 'jacket_gear', 'acc_none'],
@@ -67,6 +67,7 @@ export function recalc(p) {
   // Branch-evolution modifiers of the active nanobot.
   const br = bot?.branch ? BRANCHES[botType(bot)].find((b) => b.id === bot.branch) : null;
   p.mods = br ? br.mods : {};
+  p.mod = bot?.mod || null; // installed legendary mod id
   p.str = p.base.str + sum('str');
   p.dex = p.base.dex + sum('dex');
   p.vit = p.base.vit + sum('vit');
@@ -165,6 +166,7 @@ export function updatePlayer(dt) {
   }
 
   updateCompanion(p, dt);
+  updatePartner(p, dt);
   if (p.dead) {
     p.vx = 0;
     physics(p, dt);
@@ -426,12 +428,12 @@ function startAttack(p, type) {
   if (type === 'blaster') {
     for (let i = 0; i < B.pellets; i++) {
       const a = aim + (i - (B.pellets - 1) / 2) * B.spread + rand(-0.03, 0.03);
-      shot(ox, oy, a, B.speed, { mult: B.mult, life: B.life, r: 5, color, knock: 70 });
+      shot(ox, oy, a, B.speed, { mult: B.mult, life: B.life, r: 5, color, knock: 70, basic: true });
     }
   } else if (type === 'sniper') {
-    shot(ox, oy, aim, B.speed, { mult: B.mult * (p.mods.basicMul || 1), life: B.life, r: 4, color, pierce: B.pierce + (p.mods.pierce || 0), knock: 140, trail: true });
+    shot(ox, oy, aim, B.speed, { mult: B.mult * (p.mods.basicMul || 1), life: B.life, r: 4, color, pierce: B.pierce + (p.mods.pierce || 0), knock: 140, trail: true, basic: true });
   } else if (type === 'medic') {
-    shot(ox, oy, aim, B.speed, { mult: B.mult, life: B.life, r: 7, color, leech: B.leech, knock: 60 });
+    shot(ox, oy, aim, B.speed, { mult: B.mult, life: B.life, r: 7, color, leech: B.leech, knock: 60, basic: true });
   }
   burst(ox, oy, color, 5, 140, { grav: 0, glow: true, angle: p.face > 0 ? 0 : Math.PI, spread: 0.5 });
 }
@@ -471,7 +473,12 @@ function meleeHit(p) {
     .filter((m) => overlaps(mobBox(m), box))
     .sort((a, b) => Math.abs(a.x - p.x) - Math.abs(b.x - p.x))
     .slice(0, c.targets);
-  for (const m of targets) hitMob(p, m, c.mult, { knock: c.knock });
+  for (const m of targets) hitMob(p, m, c.mult, { knock: c.knock, basic: true });
+  // Void Edge: the 3rd combo hit also fires a slicing wave.
+  if (p.mod === 'mod_void_edge' && p.swing === 2) {
+    const [ox, oy] = muzzle(p);
+    shot(ox, oy, p.face > 0 ? 0 : Math.PI, 700, { mult: 1.0, life: 0.45, r: 11, color: '#8a5aff', pierce: 99, knock: 120, trail: true });
+  }
   effect({ type: 'slash', x: p.x + p.face * 36, y: p.y - 34, face: p.face, combo: p.swing, color: botColor(activeBot(p)), dur: 0.18 });
 }
 
@@ -494,7 +501,8 @@ export function updateShots(dt) {
           explode(s);
           break;
         }
-        hitMob(p, m, s.mult, { knock: s.knock ?? 80, dir: Math.sign(s.vx) || p.face });
+        if (s.partner) partnerHit(m, s.mult, Math.sign(s.vx) || p.face);
+        else hitMob(p, m, s.mult, { knock: s.knock ?? 80, dir: Math.sign(s.vx) || p.face, basic: s.basic });
         if (s.leech) p.hp = Math.min(p.maxHp, p.hp + Math.max(1, Math.round(p.maxHp * s.leech * (p.mods.healMul || 1))));
         s.pierce--;
         if (s.pierce < 0) {
@@ -521,7 +529,7 @@ export function updateShots(dt) {
       const target = liveMobs().filter((m) => Math.hypot(m.x - d.x, m.y - m.h / 2 - d.y) < 380).sort((a, b) => Math.abs(a.x - d.x) - Math.abs(b.x - d.x))[0];
       if (target) {
         d.cd = 0.45;
-        shot(d.x, d.y, Math.atan2(target.y - target.h / 2 - d.y, target.x - d.x), 600, { mult: d.mult, life: 0.8, r: 4, color: '#60f0a0', knock: 30 });
+        shot(d.x, d.y, Math.atan2(target.y - target.h / 2 - d.y, target.x - d.x), 600, { mult: d.mult, life: 0.8, r: 4, color: '#60f0a0', knock: 30, leech: p.mod === 'mod_lifebloom' ? 0.01 : 0 });
       }
     }
   }
@@ -547,9 +555,13 @@ function explode(s) {
     if (Math.hypot(nx - s.x, ny - s.y) < s.aoe) hitMob(p, m, s.mult, { knock: 180, up: 380 });
   }
   effect({ type: 'blast', x: s.x, y: s.y, r: s.aoe, color: s.color, dur: 0.35 });
-  burst(s.x, s.y, s.color, 26, 360, { grav: 300, glow: true });
-  burst(s.x, s.y, '#fff2c0', 10, 200, { grav: 0, glow: true });
-  shake(9);
+  burst(s.x, s.y, s.color, s.small ? 8 : 26, s.small ? 180 : 360, { grav: 300, glow: true });
+  if (!s.small) burst(s.x, s.y, '#fff2c0', 10, 200, { grav: 0, glow: true });
+  shake(s.small ? 3 : 9);
+  // Starfall: grenades burst into three bomblets.
+  if (s.cluster) {
+    for (let i = -1; i <= 1; i++) G.shots.push({ x: s.x, y: s.y - 6, vx: i * 220, vy: -380, t: 0, hit: new Set(), pierce: 99, mult: s.mult * 0.5, life: 1.2, r: 5, color: '#ffe27a', grav: 1400, aoe: 75, small: true });
+  }
 }
 
 // ---------- Skills ----------
@@ -597,7 +609,7 @@ function useSkill(p, i) {
   switch (sk.id) {
     case 'dash':
       sfx('dash');
-      p.act = { type: 'dash', t: 0.22, hit: new Set(), mult };
+      p.act = { type: 'dash', t: 0.22, hit: new Set(), mult, from: p.x };
       p.invuln = Math.max(p.invuln, 0.3);
       p.vx = p.face * 950;
       p.vy = 0;
@@ -625,20 +637,23 @@ function useSkill(p, i) {
     }
     case 'grenade':
       sfx('jump');
-      shot(ox, oy - 6, p.face > 0 ? -0.75 : Math.PI + 0.75, 620, { mult, life: 1.6, r: 7, color: '#ffd060', grav: 1500, aoe: 125 * (p.mods.aoeMul || 1), pierce: 99 });
+      shot(ox, oy - 6, p.face > 0 ? -0.75 : Math.PI + 0.75, 620, { mult, life: 1.6, r: 7, color: '#ffd060', grav: 1500, aoe: 125 * (p.mods.aoeMul || 1), pierce: 99, cluster: p.mod === 'mod_starfall' });
       break;
     case 'overdrive':
       p.act = { type: 'overdrive', t: 2 * (p.mods.overdriveMul || 1), tick: 0, mult };
       break;
-    case 'pierce':
+    case 'pierce': {
       sfx('snipe');
-      shot(ox, oy, autoAim(p, ox, oy, 900), 2300, { mult, life: 0.4, r: 8, color, pierce: 99, knock: 200, trail: true });
+      const aimP = autoAim(p, ox, oy, 900);
+      // Oblivion Rail fires three parallel beams.
+      for (const off of p.mod === 'mod_oblivion' ? [-18, 0, 18] : [0]) shot(ox, oy + off, aimP, 2300, { mult, life: 0.4, r: 8, color, pierce: 99, knock: 200, trail: true });
       effect({ type: 'beam', x: ox, y: oy, face: p.face, color, dur: 0.25 });
       shake(6);
       break;
+    }
     case 'backstep':
       sfx('snipe');
-      shot(ox, oy, autoAim(p, ox, oy, 700), 1800, { mult, life: 0.45, r: 6, color, pierce: 2, knock: 220, trail: true });
+      shot(ox, oy, autoAim(p, ox, oy, 700), 1800, { mult, life: 0.45, r: 6, color, pierce: p.mod === 'mod_oblivion' ? 99 : 2, knock: 220, trail: true });
       p.vx = -p.face * 420;
       p.vy = -460;
       p.onGround = false;
@@ -670,6 +685,7 @@ function useSkill(p, i) {
       for (const m of liveMobs()) if (Math.abs(m.x - p.x) < 140 && Math.abs(m.y - p.y) < 120) hitMob(p, m, mult, { knock: 200 });
       effect({ type: 'ring', x: p.x, y: p.y - 30, r: 140, color, dur: 0.45, round: true });
       burst(p.x, p.y - 30, color, 24, 240, { grav: -100, glow: true });
+      if (p.mod === 'mod_lifebloom') p.shield = Math.max(p.shield, 2);
       break;
     }
     case 'barrier':
@@ -816,6 +832,7 @@ function updateAct(p, dt, L, R) {
     if (a.t <= 0) {
       p.act = null;
       p.vx = p.face * 120;
+      if (p.mod === 'mod_void_edge') voidRift(p, a.from ?? p.x - p.face * 200, p.x, a.mult);
     }
     return;
   }
@@ -852,7 +869,8 @@ function updateAct(p, dt, L, R) {
       a.tick = 0.07;
       sfx('shoot');
       const [ox, oy] = muzzle(p);
-      shot(ox, oy, autoAim(p, ox, oy, 300) + rand(-0.12, 0.12), 800, { mult: a.mult, life: 0.35, r: 5, color: '#ffb040', knock: 40 });
+      const star = p.mod === 'mod_starfall';
+      shot(ox, oy, autoAim(p, ox, oy, 300) + rand(-0.12, 0.12), 800, { mult: a.mult, life: 0.35, r: 5, color: star ? '#ffe27a' : '#ffb040', knock: 40, ...(star ? { aoe: 40, small: true } : {}) });
       if (Math.random() < 0.5) shake(2);
     }
     if (a.t <= 0) p.act = null;
@@ -875,6 +893,79 @@ function updateAct(p, dt, L, R) {
       sfx('zap');
     }
     if (a.t <= 0) p.act = null;
+  }
+}
+
+// Void Edge: the dash path stays torn open for a moment, cutting anything inside it.
+function voidRift(p, x1, x2, mult) {
+  const lo = Math.min(x1, x2), hi = Math.max(x1, x2), y = p.y;
+  for (let i = 1; i <= 4; i++) {
+    G.timers.push({ t: i * 0.3, fn: () => {
+      for (const m of liveMobs()) if (m.x > lo - 20 && m.x < hi + 20 && Math.abs(m.y - y) < 80) hitMob(p, m, mult * 0.3, { knock: 20 });
+      burst((lo + hi) / 2, y - 30, '#8a5aff', 12, (hi - lo) / 2, { grav: 0, glow: true, angle: 0, spread: Math.PI });
+    } });
+  }
+}
+
+// ---------- Twin Link partner ----------
+// With the link module, the nanobot in the next occupied slot fights beside you on its own
+// at 45% of your attack, using its type's attack. It earns half the EXP you do.
+
+function partnerHit(m, mult, dir) {
+  const p = G.player;
+  const pb = partnerBot(p);
+  if (!pb) return;
+  const atk = (3 + botPower(pb) + p.str * 1.6 + p.lv * 1.2) * 0.45;
+  damageMob(m, Math.max(1, Math.round(atk * mult * rand(0.9, 1.1) - m.def)), false, dir, { knock: 40 });
+}
+
+function updatePartner(p, dt) {
+  const pb = partnerBot(p);
+  if (!pb || p.dead || !countItem('link_module')) {
+    p.pt = null;
+    return;
+  }
+  const type = botType(pb);
+  const st = (p.pt ||= { x: p.x + p.face * 30, y: p.y - 70, cd: 1, uid: pb.uid });
+  if (st.uid !== pb.uid) Object.assign(st, { uid: pb.uid, cd: 0.8 });
+  const target = liveMobs().filter((m) => Math.abs(m.x - p.x) < 360 && Math.abs(m.y - p.y) < 160).sort((a, b) => Math.abs(a.x - p.x) - Math.abs(b.x - p.x))[0];
+  const range = { blade: 50, blaster: 150, sniper: 320, medic: 200 }[type];
+  let tx = p.x + p.face * 34, ty = p.y - 76 + Math.sin(G.time * 3.3) * 4;
+  if (target) {
+    const side = Math.sign(p.x - target.x) || 1;
+    tx = target.x + side * range;
+    ty = target.y - target.h / 2 - 10;
+  }
+  st.x += (tx - st.x) * Math.min(1, dt * 5);
+  st.y += (ty - st.y) * Math.min(1, dt * 5);
+  st.face = target ? Math.sign(target.x - st.x) || 1 : p.face;
+  st.cd -= dt;
+  if (st.cd > 0) return;
+  const color = botColor(pb);
+  if (type === 'medic') {
+    st.cd = 1.2;
+    const heal = Math.max(1, Math.round(p.maxHp * 0.02 * (p.mods.healMul || 1)));
+    if (p.hp < p.maxHp) {
+      p.hp = Math.min(p.maxHp, p.hp + heal);
+      addText(p.x, p.y - 84, '+' + heal, 'heal');
+    }
+    if (target) shot(st.x, st.y, Math.atan2(target.y - target.h / 2 - st.y, target.x - st.x), 520, { mult: 0.8, life: 0.8, r: 6, color, partner: true });
+    return;
+  }
+  if (!target) return;
+  const aim = Math.atan2(target.y - target.h / 2 - st.y, target.x - st.x);
+  if (type === 'blade') {
+    st.cd = 0.7;
+    if (Math.hypot(target.x - st.x, target.y - target.h / 2 - st.y) < 90) {
+      partnerHit(target, 1.0, st.face);
+      effect({ type: 'slash', x: st.x + st.face * 20, y: st.y, face: st.face, combo: 0, color, dur: 0.16 });
+    }
+  } else if (type === 'blaster') {
+    st.cd = 0.8;
+    for (let i = -1; i <= 1; i++) shot(st.x, st.y, aim + i * 0.14, 700, { mult: 0.45, life: 0.35, r: 4, color, partner: true });
+  } else if (type === 'sniper') {
+    st.cd = 1.2;
+    shot(st.x, st.y, aim, 1500, { mult: 1.4, life: 0.45, r: 4, color, pierce: 1, trail: true, partner: true });
   }
 }
 

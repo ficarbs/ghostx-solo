@@ -1,6 +1,6 @@
 // Nanobots: collection, active slot, leveling/evolution, overclocking, and companion chatter.
 import { G } from './state.js';
-import { BOTS, BOT_TYPES, BOT_SKILLS, PERSONA, BOT_MAX_LV, RARITY, OVERCLOCK, botExpNeed } from './data.js';
+import { BOTS, BOT_TYPES, BOT_SKILLS, PERSONA, BOT_MAX_LV, RARITY, OVERCLOCK, MOD_POWER, botExpNeed } from './data.js';
 import { countItem, removeItem } from './items.js';
 import { log, banner, burst, effect } from './fx.js';
 import { recalc, swapStrike } from './player.js';
@@ -14,7 +14,17 @@ export const botColor = (b) => BOT_TYPES[botType(b)].color;
 
 export function botPower(b) {
   const s = BOTS[b.sp];
-  return s.atk * (1 + 0.08 * (b.lv - 1)) * [1, 1.25, 1.6][stageOf(b) - 1] * (1 + 0.1 * b.stars);
+  return s.atk * (1 + 0.08 * (b.lv - 1)) * [1, 1.25, 1.6][stageOf(b) - 1] * (1 + 0.1 * b.stars) * (b.mod ? 1 + MOD_POWER : 1);
+}
+
+// Twin Link partner: the bot in the next occupied slot after the active one.
+export function partnerBot(p = G.player) {
+  if (!p) return null;
+  for (let k = 1; k < 3; k++) {
+    const uid = p.slots[(p.active + k) % 3];
+    if (uid != null && uid !== p.slots[p.active]) return p.bots.find((b) => b.uid === uid) || null;
+  }
+  return null;
 }
 
 export function activeBot(p = G.player) {
@@ -50,9 +60,8 @@ export function addBot(sp) {
   return b;
 }
 
-export function gainBotExp(n) {
+export function gainBotExp(n, b = activeBot(G.player)) {
   const p = G.player;
-  const b = activeBot(p);
   if (!b || b.lv >= BOT_MAX_LV) return;
   b.exp += n;
   let leveled = false;

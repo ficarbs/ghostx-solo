@@ -44,6 +44,35 @@ export const SCENES = {
     ['bot', 'Hunter... her readings are off every scale I have.'],
     ['player', 'Then we go past the scale. Together.'],
   ],
+  act3_intro: [
+    ['jin', 'Captain... the Queen\'s echo. It\'s not at the throne anymore.'],
+    ['captain', 'Then where is it?'],
+    ['jin', 'In Rei. She walked into the throne room after the fight and took it. Her signal is... hollow.'],
+    ['bot', 'She saved us in the Mirror District. Why would she...'],
+    ['captain', 'We bring her back, hunter. Not down. Back. Start at the old GhostX Academy, through the throne\'s back wall.'],
+  ],
+  academy_enter: [
+    ['bot', 'This is where GhostX trained its first hunters. The drones here... they used to be like me.'],
+    ['player', 'Then we set them free too.'],
+  ],
+  skyrail_enter: [
+    ['rei', 'You followed me all the way out here? Go home, GhostX.'],
+    ['player', 'Not without you.'],
+  ],
+  zero_pre: [
+    ['rei', 'Do you hear it? The echo is so quiet in here. No rifts. No demons. Nothing.'],
+    ['player', 'That\'s not quiet, Rei. That\'s empty.'],
+    ['rei', 'Then let me show you how strong empty is.'],
+    ['bot', 'Hunter, her power readings are higher than the Queen\'s!'],
+    ['player', 'Then we hit harder. Together.'],
+  ],
+  zero_post: [
+    ['rei', '...GhostX? Why are you... everything is so loud again.'],
+    ['player', 'That\'s what being alive sounds like.'],
+    ['rei', 'Tch. Don\'t get sentimental. ...Thanks, hunter.'],
+    ['captain', 'All readings normal. Every rift, every echo. It\'s finally over.'],
+    ['bot', 'Best. Team. Ever.'],
+  ],
   queen_post: [
     ['queen', 'Every mirror... cracks...'],
     ['rei', 'Not bad, GhostX. Not bad at all.'],
