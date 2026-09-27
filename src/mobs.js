@@ -3,7 +3,13 @@ import { G } from './state.js';
 import { MOBS, ITEMS, GRAVITY, CURRENCY, RANKS } from './data.js';
 import { addText, burst, shake, log, effect, banner, rand, randi, clamp } from './fx.js';
 import { hurtPlayer, gainExp, physics, bodyBox, overlaps, registerHit } from './player.js';
-import { addItem } from './items.js';
+import { addItem, countItem } from './items.js';
+
+const VICTORY = {
+  sovereign: ['VICTORY', 'The Rift Sovereign has fallen. The rift is closing.'],
+  rei: ['DUEL WON', 'Rei lowers her blade.'],
+  queen: ['VICTORY', 'The Hollow Queen is silenced.'],
+};
 import { gainBotExp, say } from './bots.js';
 import { onKill } from './quests.js';
 import { sfx } from './audio.js';
@@ -32,8 +38,9 @@ export function spawnMob(type, plat, x, opts = {}) {
     state: 'idle', t: rand(0.5, 2.5),
     hurtT: 0, flash: 0, atkCd: rand(1.5, 3), anim: Math.random() * 10,
     showBar: 0,
+    big: d.kind === 'boss' || d.kind === 'rival', // boss bar, long death, no knockback
   };
-  if (d.kind === 'boss') {
+  if (m.big) {
     Object.assign(m, { st: 'intro', aiT: 1.6, atk: null, summons: 0 });
     G.boss = m;
   }
@@ -43,6 +50,11 @@ export function spawnMob(type, plat, x, opts = {}) {
 
 export function damageMob(m, dmg, crit, dir, opts = {}) {
   if (!m.alive) return;
+  if (m.invuln > 0) {
+    // Rei's dodge: the hit whiffs.
+    addText(m.x, m.y - m.h - 8, 'MISS', 'info');
+    return;
+  }
   m.hp -= dmg;
   m.flash = 0.12;
   m.showBar = 4;
@@ -55,7 +67,7 @@ export function damageMob(m, dmg, crit, dir, opts = {}) {
   effect({ type: 'hit', x: m.x - dir * 6, y: m.y - m.h / 2, dur: 0.12, crit });
   // Demons nearby join the fight.
   for (const o of G.mobs) if (o !== m && o.alive && !o.aggro && Math.abs(o.x - m.x) < 260 && Math.abs(o.y - m.y) < 120) o.aggro = true;
-  if (m.d.kind !== 'boss') {
+  if (!m.big) {
     const heavy = m.d.heavy ? 0.3 : 1;
     m.hurtT = m.d.heavy ? 0.08 : 0.25;
     m.vx = dir * (opts.knock ?? 120) * heavy;
@@ -70,9 +82,9 @@ export function damageMob(m, dmg, crit, dir, opts = {}) {
 function killMob(m) {
   m.alive = false;
   m.hp = 0;
-  m.deadT = m.d.kind === 'boss' ? 2.5 : 0.6;
+  m.deadT = m.big ? 2.5 : 0.6;
   sfx('kill');
-  G.hitstop = Math.max(G.hitstop, m.d.kind === 'boss' ? 0.3 : 0.05);
+  G.hitstop = Math.max(G.hitstop, m.big ? 0.3 : 0.05);
   const p = G.player;
   const exp = Math.round(m.exp * (1 + RANKS[p.rank].exp));
   gainExp(exp);
@@ -81,12 +93,13 @@ function killMob(m) {
   burst(m.x, m.y - m.h / 2, m.type === 'wisp' ? '#ff5af0' : '#ff8a6a', 18, 220, { grav: -60, glow: true });
   if (Math.random() < 0.25) say('kill');
   onKill(m.type);
-  if (m.d.kind === 'boss') {
+  if (m.big) {
     G.boss = null;
     shake(20);
     sfx('victory');
-    banner('VICTORY', 'The Rift Sovereign has fallen. The rift is closing.');
-    log('Rift Sovereign has been defeated!', 'lvl');
+    const v = VICTORY[m.type] || ['VICTORY', `${m.name} has fallen.`];
+    banner(v[0], m.ex ? `${m.name} has fallen.` : v[1]);
+    log(`${m.name} has been defeated!`, 'lvl');
     for (const o of G.mobs) if (o !== m && o.alive && o.summoned) { o.alive = false; o.deadT = 0.5; }
     G.projs = [];
     G.hooks.bossDown?.(m);
@@ -96,12 +109,17 @@ function killMob(m) {
 
 function dropLoot(m) {
   const [g1, g2] = m.d.gold;
-  const coins = m.d.kind === 'boss' ? 6 : 1;
+  const coins = m.big ? 6 : 1;
   for (let i = 0; i < coins; i++) {
     G.drops.push(makeDrop(m, { gold: Math.round((randi(g1, g2) * m.goldMul) / coins) }));
   }
   for (const [id, chance] of m.d.drops) {
     if (Math.random() < chance * m.dropMul) G.drops.push(makeDrop(m, { id }));
+  }
+  // Quest-only drops (e.g. Min's toy drone) while their quest is active.
+  for (const [id, it] of Object.entries(ITEMS)) {
+    const qd = it.questDrop;
+    if (qd && qd.from === m.type && G.player.quests[qd.quest]?.status === 'active' && !countItem(id) && Math.random() < qd.chance) G.drops.push(makeDrop(m, { id }));
   }
 }
 
@@ -181,11 +199,13 @@ export function updateMobs(dt) {
     m.flash -= dt;
     m.hurtT -= dt;
     m.showBar -= dt;
-    if (m.d.kind === 'boss') updateBoss(m, dt);
+    if (m.d.kind === 'rival') updateRival(m, dt);
+    else if (m.type === 'queen') updateQueen(m, dt);
+    else if (m.d.kind === 'boss') updateBoss(m, dt);
     else if (m.d.kind === 'floater') updateFloater(m, dt);
     else updateWalker(m, dt);
 
-    if (!p.dead && overlaps(pb, { x1: m.x - m.w / 2 + 4, x2: m.x + m.w / 2 - 4, y1: m.y - m.h + 4, y2: m.y })) {
+    if (!p.dead && !(m.d.kind === 'rival' && !m.charging) && overlaps(pb, { x1: m.x - m.w / 2 + 4, x2: m.x + m.w / 2 - 4, y1: m.y - m.h + 4, y2: m.y })) {
       const attacking = m.st === 'lunge' || m.charging || m.pouncing || m.diving > 0;
       const mul = m.st === 'lunge' ? 1.4 : m.charging ? 1.3 : m.pouncing || m.diving > 0 ? 1.2 : 1;
       hurtPlayer(m.atkv * mul, m.x, attacking);
@@ -216,6 +236,20 @@ function updateWalker(m, dt) {
   if (m.hurtT > 0) {
     m.vx *= Math.pow(0.02, dt);
     m.charging = false;
+  } else if (m.pullT > 0) {
+    // Void maw inhale: drags the player in, then bites.
+    m.vx = 0;
+    m.pullT -= dt;
+    if (!p.dead && sameLevel && Math.abs(dx) < 340) {
+      p.x -= Math.sign(dx) * 150 * dt;
+      if (Math.random() < 0.6) G.parts.push({ x: m.x + dx * Math.random(), y: m.y - rand(10, 60), vx: -Math.sign(dx) * 220, vy: 0, life: 0.3, t: 0, color: '#8a5aff', size: 3, grav: 0 });
+    }
+    if (m.pullT <= 0) {
+      m.atkCd = rand(3, 4);
+      sfx('slam');
+      effect({ type: 'ring', x: m.x + m.face * 30, y: m.y - 30, r: 70, color: '#8a5aff', dur: 0.3, round: true });
+      if (!p.dead && sameLevel && Math.abs(dx) < 95) hurtPlayer(m.atkv * 1.4, m.x, true);
+    }
   } else if (m.windup > 0) {
     m.vx = 0;
     m.windup -= dt;
@@ -236,6 +270,8 @@ function updateWalker(m, dt) {
       if (m.d.charge && adx < 260 && adx > 60) windup(m, 0.45);
       else if (m.d.pounce && adx < 170 && adx > 30) windup(m, 0.35);
       else if (m.d.pound && adx < 150) windup(m, 0.65);
+      else if (m.d.stalk && adx < 300 && adx > 50) windup(m, 0.4);
+      else if (m.d.pull && adx < 300) windup(m, 0.6);
     }
   } else {
     m.t -= dt;
@@ -300,6 +336,21 @@ function releaseAttack(m) {
     m.vy = -430;
     m.vx = m.face * 280;
     sfx('jump');
+  } else if (m.d.stalk) {
+    // Glass stalker: blinks behind the player, then lunges.
+    if (Math.abs(p.y - m.y) < 70) {
+      burst(m.x, m.y - m.h / 2, '#bff4ff', 14, 180, { grav: 0, glow: true });
+      m.x = clamp(p.x - p.face * 70, m.plat.x + m.w / 2, m.plat.x + m.plat.w - m.w / 2);
+      m.face = Math.sign(p.x - m.x) || 1;
+      burst(m.x, m.y - m.h / 2, '#bff4ff', 14, 180, { grav: 0, glow: true });
+      sfx('portal');
+    }
+    m.charging = true;
+    m.chargeT = 0.3;
+    m.vx = m.face * 320;
+  } else if (m.d.pull) {
+    m.pullT = 1.0;
+    sfx('boss_roar');
   } else if (m.d.pound) {
     // Shockwave along the platform: jump over it.
     m.atkCd = rand(2.6, 3.6);
@@ -384,13 +435,203 @@ function updateFloater(m, dt) {
       m.atkCd = rand(2.4, 3.4);
       m.casting = 0.4;
       sfx('enemy_shot');
-      shoot(m.x, m.y - m.h / 2, p.x, p.y - 30, 250, m.atkv * 0.9, '#b8a8ff', 8, { life: 3 });
+      const n = m.d.spread ? 3 : 1;
+      for (let i = 0; i < n; i++) {
+        const a = Math.atan2(p.y - 30 - (m.y - m.h / 2), p.x - m.x) + (i - (n - 1) / 2) * 0.22;
+        G.projs.push({ x: m.x, y: m.y - m.h / 2, vx: Math.cos(a) * 260, vy: Math.sin(a) * 260, r: 8, dmg: m.atkv * 0.9, color: m.d.spread ? '#bff4ff' : '#b8a8ff', t: 0, life: 3 });
+      }
     }
   }
   m.casting = Math.max(0, (m.casting || 0) - dt);
 }
 
-// ---------- Gumiho boss ----------
+// ---------- Rei, rival hunter ----------
+// A hunter like you: closes in with a 3-hit slash combo, dashes through you, throws ground waves
+// you can jump, and dodges your attacks. Faster below half HP.
+
+function updateRival(m, dt) {
+  const p = G.player;
+  const map = G.map;
+  const floor = map.def.floor;
+  const hpf = m.hp / m.maxHp;
+  const rage = hpf < 0.5 ? 1.35 : 1;
+  const dx = p.x - m.x, adx = Math.abs(dx);
+  m.aiT -= dt;
+  m.invuln = Math.max(0, (m.invuln || 0) - dt);
+  m.dodgeCd = (m.dodgeCd || 0) - dt;
+  m.y = floor;
+  if (m.st === 'intro') {
+    if (m.aiT <= 0) { m.st = 'move'; m.aiT = 1; }
+    return;
+  }
+  const a = m.atk;
+  if (m.st === 'move') {
+    m.face = Math.sign(dx) || m.face;
+    const want = 70;
+    m.vx = adx > want + 20 ? m.face * m.d.speed * rage : adx < want - 20 ? -m.face * m.d.speed * 0.6 : 0;
+    // Dodge a basic attack or skill coming her way.
+    if (m.dodgeCd <= 0 && adx < 130 && (p.attackT > 0 || p.act) && Math.random() < 0.5 * dt * 10) {
+      m.st = 'dodge'; m.atk = { t: 0.35, dir: -Math.sign(dx) || 1 }; m.invuln = 0.35; m.dodgeCd = hpf < 0.5 ? 1.6 : 2.4;
+      sfx('dash');
+    } else if (m.aiT <= 0 && !p.dead) {
+      if (adx < 120) { m.st = 'slash'; m.atk = { t: 0.9, hits: 0, phase: 'wind' }; }
+      else if (Math.random() < 0.5) { m.st = 'dash'; m.atk = { t: 0.75, phase: 'wind' }; effect({ type: 'alert', x: m.x, y: m.y - 80, dur: 0.35 }); }
+      else { m.st = 'wave'; m.atk = { t: 0.6, fired: false, phase: 'wind' }; effect({ type: 'alert', x: m.x, y: m.y - 80, dur: 0.4 }); }
+    }
+  } else if (m.st === 'slash') {
+    m.vx = 0;
+    a.t -= dt * rage;
+    // Three quick slashes at 0.6 / 0.35 / 0.1 remaining.
+    const marks = [0.6, 0.35, 0.1];
+    if (a.hits < 3 && a.t <= marks[a.hits]) {
+      a.hits++;
+      a.phase = a.hits % 2 ? 'hit' : 'wind';
+      sfx(a.hits === 3 ? 'slash3' : 'slash');
+      effect({ type: 'slash', x: m.x + m.face * 36, y: m.y - 34, face: m.face, combo: a.hits - 1, color: '#ff8ac8', dur: 0.18 });
+      if (!p.dead && adx < 100 && Math.abs(p.y - m.y) < 60 && Math.sign(dx) === m.face) hurtPlayer(m.atkv * (a.hits === 3 ? 1.3 : 0.9), m.x, true);
+    }
+    if (a.t <= 0) endRival(m);
+  } else if (m.st === 'dash') {
+    a.t -= dt;
+    if (a.phase === 'wind' && a.t <= 0.4) { a.phase = 'go'; sfx('dash'); }
+    if (a.phase === 'go') {
+      m.x = clamp(m.x + m.face * 760 * rage * dt, m.w, map.w - m.w);
+      if (Math.random() < 0.8) G.parts.push({ x: m.x - m.face * 10, y: m.y - rand(10, 55), vx: -m.face * 60, vy: 0, life: 0.25, t: 0, color: '#ff8ac8', size: 3, grav: 0 });
+      m.charging = true;
+    } else m.vx = 0;
+    if (a.t <= 0) { m.charging = false; endRival(m); }
+  } else if (m.st === 'wave') {
+    m.vx = 0;
+    a.t -= dt;
+    if (!a.fired && a.t <= 0.25) {
+      a.fired = true;
+      a.phase = 'hit';
+      sfx('snipe');
+      const n = hpf < 0.5 ? 2 : 1;
+      for (let i = 0; i < n; i++) G.projs.push({ x: m.x + m.face * 30, y: floor - 18, vx: m.face * (420 + i * 160), vy: 0, r: 14, dmg: m.atkv, color: '#ff8ac8', t: 0, life: 3 });
+    }
+    if (a.t <= 0) endRival(m);
+  } else if (m.st === 'dodge') {
+    a.t -= dt;
+    m.x = clamp(m.x + a.dir * 520 * dt, m.w, map.w - m.w);
+    if (a.t <= 0) { m.st = 'move'; m.atk = null; m.aiT = 0.25; }
+  }
+  if (m.st === 'move') m.x = clamp(m.x + m.vx * dt, m.w, map.w - m.w);
+}
+
+function endRival(m) {
+  m.st = 'move';
+  m.atk = null;
+  m.aiT = (m.hp / m.maxHp < 0.5 ? rand(0.4, 0.8) : rand(0.8, 1.3));
+}
+
+// ---------- The Hollow Queen ----------
+// Hovers and keeps her distance. Void beams sweep a whole row (jump to a platform or dodge through),
+// gravity pulls you in before a shockwave, mirror clones join in, and below 25% she adds a shard nova.
+
+function updateQueen(m, dt) {
+  const p = G.player;
+  const map = G.map;
+  const floor = map.def.floor;
+  const hpf = m.hp / m.maxHp;
+  const dx = p.x - m.x;
+  m.aiT -= dt;
+  m.y = floor - 30 + Math.sin(m.anim * 1.6) * 8;
+  if (m.st === 'intro') {
+    if (m.aiT <= 0) { m.st = 'move'; m.aiT = 1.2; }
+    return;
+  }
+  const a = m.atk;
+  if (m.st === 'move') {
+    m.face = Math.sign(dx) || m.face;
+    const want = 260;
+    const tx = p.x - m.face * want;
+    m.x = clamp(m.x + clamp(tx - m.x, -1, 1) * m.d.speed * dt, m.w / 2, map.w - m.w / 2);
+    if (m.aiT <= 0 && !p.dead) {
+      const opts = ['beam', 'beam', 'gravity', 'rain'];
+      if (hpf < 0.7 && G.mobs.filter((o) => o.alive && o.summoned).length < 3) opts.push('clones');
+      if (hpf < 0.25) opts.push('nova', 'nova');
+      const pick = opts[Math.floor(Math.random() * opts.length)];
+      m.st = pick;
+      if (pick === 'beam') {
+        // Aim the beam at the player's current row.
+        const by = p.y - 30;
+        m.atk = { t: 1.15, fired: false, y: by, phase: 'wind' };
+        effect({ type: 'hbeam', y: by, dur: 0.8, warn: true });
+        sfx('warn');
+      } else if (pick === 'gravity') {
+        m.atk = { t: 1.6, fired: false, phase: 'wind' };
+        effect({ type: 'alert', x: m.x, y: m.y - m.h - 20, dur: 0.6 });
+        sfx('boss_roar');
+      } else if (pick === 'rain') m.atk = { t: 1.3, fired: false };
+      else if (pick === 'clones') m.atk = { t: 1.0, fired: false };
+      else if (pick === 'nova') m.atk = { t: 1.0, fired: false, phase: 'wind' };
+    }
+    return;
+  }
+  a.t -= dt;
+  if (m.st === 'beam') {
+    if (!a.fired && a.t <= 0.35) {
+      a.fired = true;
+      a.phase = 'hit';
+      effect({ type: 'hbeam', y: a.y, dur: 0.35 });
+      shake(10);
+      sfx('sync');
+      if (!p.dead && Math.abs(p.y - 30 - a.y) < 34) hurtPlayer(m.atkv * 1.5, m.x, true);
+    }
+  } else if (m.st === 'gravity') {
+    if (a.t > 0.5) {
+      if (!p.dead) p.x -= Math.sign(dx) * 170 * dt;
+      if (Math.random() < 0.8) G.parts.push({ x: m.x + dx * Math.random(), y: m.y - rand(20, 120), vx: -Math.sign(dx) * 260, vy: 0, life: 0.3, t: 0, color: '#c8c8ff', size: 3, grav: 0 });
+    } else if (!a.fired) {
+      a.fired = true;
+      a.phase = 'hit';
+      effect({ type: 'ring', x: m.x, y: floor, r: 230, color: '#e8e8ff', dur: 0.45 });
+      shake(12);
+      sfx('slam');
+      if (!p.dead && Math.abs(p.x - m.x) < 230 && p.y > floor - 50) hurtPlayer(m.atkv * 1.3, m.x, true);
+    }
+  } else if (m.st === 'rain') {
+    if (!a.fired) {
+      a.fired = true;
+      sfx('warn');
+      for (let i = 0; i < 9; i++) {
+        const x = i === 0 ? p.x : rand(80, map.w - 80);
+        effect({ type: 'warn', x, y: floor, dur: 0.9 });
+        G.projs.push({ x, y: G.cam.y - 30, vx: 0, vy: 720, r: 13, dmg: m.atkv * 1.1, color: '#bff4ff', t: 0, life: 5, delay: 0.9 });
+      }
+    }
+  } else if (m.st === 'clones') {
+    if (!a.fired && a.t <= 0.5) {
+      a.fired = true;
+      for (let i = 0; i < 2; i++) {
+        const w = spawnMob('mirror_wraith', map.plats[0], clamp(m.x + (i ? 200 : -200), 80, map.w - 80));
+        w.summoned = true;
+        w.aggro = true;
+        w.y = floor - 140;
+        burst(w.x, w.y, '#bff4ff', 16, 180, { glow: true, grav: 0 });
+      }
+      sfx('portal');
+    }
+  } else if (m.st === 'nova') {
+    if (!a.fired && a.t <= 0.4) {
+      a.fired = true;
+      a.phase = 'hit';
+      sfx('explode');
+      for (let i = 0; i < 14; i++) {
+        const ang = (i / 14) * Math.PI * 2;
+        G.projs.push({ x: m.x, y: m.y - 70, vx: Math.cos(ang) * 300, vy: Math.sin(ang) * 300, r: 11, dmg: m.atkv, color: '#e8e8ff', t: 0, life: 3 });
+      }
+    }
+  }
+  if (a.t <= 0) {
+    m.st = 'move';
+    m.atk = null;
+    m.aiT = hpf < 0.25 ? rand(0.5, 0.9) : hpf < 0.5 ? rand(0.8, 1.3) : rand(1.2, 1.8);
+  }
+}
+
+// ---------- Rift Sovereign ----------
 
 function updateBoss(m, dt) {
   const p = G.player;

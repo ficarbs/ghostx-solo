@@ -40,6 +40,7 @@ On macOS, Ctrl+arrow can switch desktops, so use Z to attack.
   - **Blaster** (short range): spread shots, plus scatter, grenade and overdrive skills.
   - **Sniper** (long range): piercing shots, plus rail shot, evasion shot and orbital strike skills.
   - **Medic** (support): orbs that heal you on hit, plus repair, barrier and drone swarm skills.
+- **Mythic nanobots:** four Mythic-rarity bots (Eclipse, Nova, Phantom, Genesis) come from Act 2 requisitions. The Nanodex now has 16 species.
 - **Starter choice:** a new game begins by choosing your first nanobot from the four commons: Kira (Blade), Pip (Blaster), Lens (Sniper) or Mote (Medic).
 - **Requisitions:** Tech Jin's requisition quests are the only source of new nanobots. There are 11, offered one at a time and gated by level. Each gives exactly one bot, and you pick which from its offer list. Later requisitions require Mission Terminal clears at a set grade.
 - **Evolution:** bots level up from kills and evolve at levels 6 and 12, which changes their name and look.
@@ -54,8 +55,19 @@ On macOS, Ctrl+arrow can switch desktops, so use Z to attack.
 - **Personality:** each bot has one of four personalities (cheerful, grumpy, stoic, nervous) and comments in speech bubbles.
 - **Nanodex:** tracks which of the 12 species you've collected.
 - **Combo meter:** consecutive hits climb through ranks D → C → B → A → S → SS → SSS for bonus EXP (up to +75%) and damage. Getting hit breaks the combo. Hits also fill the **Sync** gauge, and F spends it on an ultimate that hits every enemy on screen.
-- **World:** Metro Central (hub) → Neon Alley → Line 9 Depot → Skyline Rooftops → The Rift Core, where you fight the Rift Sovereign boss.
-- **Story:** a 5-mission chain from Captain Yoon that ends at the Rift Sovereign. Beating it plays an ending with your run stats and unlocks the post-game.
+- **World:**
+  - Act 1: Metro Central (hub) → Neon Alley → Line 9 Depot → Skyline Rooftops → The Rift Core (Rift Sovereign).
+  - Act 2: The Rift Core's east gate → Shattered Mirror District (Lv 12–16) → the Glasshouse Rooftop duel with Rei → The Abyss Line (Lv 16–20) → Throne of Echoes (The Hollow Queen, Lv 22).
+  - Gates with red bars are sealed until the story opens them.
+- **Story:** 10 quests from Captain Yoon across two acts, with cutscenes at key beats (letterboxed, pixel portraits, typewriter text, skippable). Each act ends with an ending screen and new unlocks.
+- **Rival:** Rei, an ex-GhostX hunter, duels you with a 3-hit slash combo, a dash strike, ground waves (jump them), and dodges of her own.
+- **The Hollow Queen:** the final boss. She uses row-sweeping void beams (change height or dodge), a gravity pull into a shockwave, shard rain, and mirror-wraith clones, adding a shard nova below 25% HP.
+- **Side quests:** Grandma Soon (Metro Central), Little Min (Neon Alley) and Conductor Park (Line 9, later the Mirror District) give 6 side quests, with quest-only drops and exclusive cosmetic rewards.
+- **Act 2 demons:**
+  - Mirror Wraiths fire 3-way shards and blink.
+  - Glass Stalkers teleport behind you and lunge.
+  - Echo Swarms dive.
+  - Void Maws inhale you, then bite.
 - **Mission Terminal** (east side of Metro Central): repeatable instanced wave operations, including gold-glowing **elite** demons. Each clear is graded **S/A/B/C** on time vs. par, damage taken and best combo, and the grade multiplies rewards (×0.8 to ×1.5). The post-game adds **Rift Breach** (4 elite-heavy waves) and **Sovereign EX** (Lv 20, about 3× HP and 1.7× damage).
 - **Hoverboard:** 1.75× speed and a higher jump. Attacking, using a skill or taking a hit knocks you off.
 - **Audio:** every sound effect is synthesized with WebAudio, and each zone has its own procedural music track, plus boss, mission and ending themes. You can set master, music and effects volume and turn screen shake on or off in Settings (O).
@@ -83,6 +95,7 @@ On macOS, Ctrl+arrow can switch desktops, so use Z to attack.
 | `src/world.js` | Map loading, gates, respawns |
 | `src/missions.js` | Instanced wave missions, grading, rewards |
 | `src/workshop.js` | Slot tuning, fabricator, branch evolution, cosmetic unlocks |
+| `src/cutscene.js` | Story scenes and the cutscene player |
 | `src/touch.js` | On-screen joystick and buttons (context-sensitive Talk/Enter) |
 | `src/pixel.js` | Pixel-art sprite baking helpers |
 | `src/audio.js` | Synthesized SFX and step-sequenced music |

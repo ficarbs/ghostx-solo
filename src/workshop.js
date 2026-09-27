@@ -91,6 +91,7 @@ export function setBranch(uid, id, respec = false) {
 export function unlockMet(key) {
   const p = G.player;
   if (key === 'story') return !!p.storyDone;
+  if (key === 'act2') return !!p.act2Done;
   if (key === 'nanodex') return BOT_ORDER.every((sp) => p.seen.includes(sp));
   if (key === 'sss') return p.bestCombo >= 400;
   if (key === 'allS') return ['m1', 'm2', 'm3'].every((id) => p.missions[id]?.best === 'S');

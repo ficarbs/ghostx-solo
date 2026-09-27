@@ -36,6 +36,10 @@ export const ITEMS = {
   hound_fang: { name: 'Hellhound Fang', type: 'etc', icon: ['fang', '#ffb060'], sell: 22, desc: 'Glows like a coal.' },
   shade_residue: { name: 'Shade Residue', type: 'etc', icon: ['orb', '#6a5aff'], sell: 32, desc: 'Cold black mist in a vial.' },
   brute_plate: { name: 'Brute Plating', type: 'etc', icon: ['plate', '#8a8f99'], sell: 45, desc: 'Demon flesh fused with scrap iron.' },
+  mirror_shard: { name: 'Mirror Shard', type: 'etc', icon: ['shard', '#bff4ff'], sell: 60, desc: 'Your reflection in it is a half-second late.' },
+  void_core: { name: 'Void Core', type: 'etc', icon: ['core', '#6a3aff'], sell: 90, desc: 'A pocket of nothing. It hums.' },
+  queen_heart: { name: 'Hollow Heart', type: 'etc', icon: ['core', '#e8e8ff'], sell: 3000, rare: true, desc: 'What was left of the Hollow Queen.' },
+  toy_drone: { name: 'Toy Drone', type: 'etc', icon: ['cell', '#ffd24a'], sell: 1, desc: 'Min\'s drone. A little chewed.' },
   sovereign_core: { name: 'Sovereign Core', type: 'etc', icon: ['core', '#ff3a6a'], sell: 600, rare: true, desc: 'The rift\'s heart. It still beats.' },
 
   street_cap: { name: 'Street Cap', type: 'equip', slot: 'head', def: 1, lv: 1, price: 40, icon: ['cap', '#3a6ae0'], color: '#3a6ae0', look: 'cap', desc: 'Backwards is optional.' },
@@ -54,6 +58,10 @@ export const ITEMS = {
   shade_coat: { name: 'Shade-Weave Coat', type: 'equip', slot: 'body', def: 13, vit: 2, dex: 1, lv: 8, sell: 700, icon: ['jacket', '#3a2a6a'], color: '#3a2a6a', desc: 'Fabricated. Light, cold, and very hard to hit.' },
   brute_chip: { name: 'Brute Core Chip', type: 'equip', slot: 'chip', str: 4, vit: 3, lv: 10, sell: 1200, icon: ['chip', '#ffa030'], desc: 'Fabricated from brute plating.' },
   rift_visor: { name: 'Rift Visor', type: 'equip', slot: 'head', def: 10, str: 2, dex: 2, hp: 150, lv: 13, sell: 2500, rare: true, icon: ['visor', '#ff3a6a'], color: '#ff3a6a', look: 'visor', desc: 'Fabricated around a Sovereign Core.' },
+  mirror_visor: { name: 'Mirror Visor', type: 'equip', slot: 'head', def: 13, dex: 4, lv: 14, sell: 1500, rare: true, icon: ['visor', '#bff4ff'], color: '#bff4ff', look: 'visor', desc: 'Sees the attack before it arrives.' },
+  void_mantle: { name: 'Void Mantle', type: 'equip', slot: 'body', def: 22, vit: 4, lv: 17, sell: 2600, rare: true, icon: ['jacket', '#3a1a6a'], color: '#3a1a6a', desc: 'Woven from the Abyss Line\'s dark.' },
+  hollow_chip: { name: 'Hollow Chip', type: 'equip', slot: 'chip', str: 7, dex: 7, vit: 5, lv: 20, sell: 5000, rare: true, icon: ['chip', '#e8e8ff'], desc: 'Carved from the Queen\'s heart.' },
+  hollow_crown: { name: 'Hollow Crown', type: 'equip', slot: 'head', def: 16, str: 3, hp: 250, lv: 22, sell: 5000, rare: true, icon: ['horns', '#e8e8ff'], color: '#e8e8ff', look: 'horns', desc: 'It fits. That\'s the worrying part.' },
   sovereign_chip: { name: 'Sovereign Chip', type: 'equip', slot: 'chip', str: 5, dex: 5, vit: 5, lv: 10, sell: 2500, rare: true, icon: ['chip', '#ff4a6a'], desc: 'Rift energy, tamed. Mostly.' },
 };
 
@@ -86,6 +94,10 @@ export const BOTS = {
   mote: { evo: ['Mote', 'Medimote', 'Seraph'], type: 'medic', atk: 4, rarity: 1, persona: 'nervous' },
   aegis: { evo: ['Aegis', 'Aegis II', 'Aegis Nova'], type: 'medic', atk: 7, rarity: 2, persona: 'stoic' },
   halo: { evo: ['Halo', 'Halo Prime', 'Archon'], type: 'medic', atk: 10, rarity: 3, persona: 'cheerful' },
+  eclipse: { evo: ['Eclipse', 'Eclipse Blade', 'Total Eclipse'], type: 'blade', atk: 17, rarity: 4, persona: 'stoic' },
+  nova: { evo: ['Nova', 'Supernova', 'Hypernova'], type: 'blaster', atk: 16, rarity: 4, persona: 'cheerful' },
+  phantom: { evo: ['Phantom', 'Phantom-X', 'Phantom Zero'], type: 'sniper', atk: 17, rarity: 4, persona: 'grumpy' },
+  genesis: { evo: ['Genesis', 'Genesis Prime', 'Origin'], type: 'medic', atk: 14, rarity: 4, persona: 'nervous' },
 };
 export const BOT_ORDER = Object.keys(BOTS);
 export const STARTERS = ['kira', 'pip', 'lens', 'mote'];
@@ -139,6 +151,8 @@ export const OUTFITS = {
     { id: 'hair_crimson', name: 'Crimson', color: '#b8203a', price: 300 },
     { id: 'hair_cyan', name: 'Neon Cyan', color: '#30c8e8', price: 500 },
     { id: 'hair_gold', name: 'Gold', color: '#e8b830', unlock: 'story' },
+    { id: 'hair_pink', name: 'Sakura', color: '#ff8ac8', unlock: 'quest' },
+    { id: 'hair_white', name: 'Hollow White', color: '#f4f4ff', unlock: 'act2' },
   ],
   jacket: [
     { id: 'jacket_gear', name: 'Match armor', color: null },
@@ -154,6 +168,9 @@ export const OUTFITS = {
     { id: 'acc_mask', name: 'Tactical Mask', price: 700 },
     { id: 'acc_halo', name: 'Nano Halo', unlock: 'nanodex' },
     { id: 'acc_flame', name: 'SSS Flame', unlock: 'sss' },
+    { id: 'acc_cat', name: 'Cat Ears', unlock: 'quest' },
+    { id: 'acc_conductor', name: 'Conductor Cap', unlock: 'quest' },
+    { id: 'acc_rei', name: 'Rei\'s Ribbon', unlock: 'quest' },
   ],
 };
 export const UNLOCKS = {
@@ -161,6 +178,8 @@ export const UNLOCKS = {
   allS: 'Earn an S on Alley Outbreak, Depot Lockdown and Rooftop Siege',
   nanodex: 'Collect all 12 nanobots',
   sss: 'Reach an SSS combo (400 hits)',
+  quest: 'Reward from a side quest',
+  act2: 'Defeat the Hollow Queen',
 };
 
 // Overclock: +1 star (+10% power) per level, paid in credits and demon loot. Index = current stars.
@@ -171,7 +190,7 @@ export const OVERCLOCK = [
   { gold: 1800, items: [['shade_residue', 6]] },
   { gold: 3500, items: [['brute_plate', 6], ['sovereign_core', 1]] },
 ];
-export const RARITY = ['', 'Common', 'Rare', 'Epic'];
+export const RARITY = ['', 'Common', 'Rare', 'Epic', 'Mythic'];
 
 // Basic attack per type. rate = seconds between attacks.
 export const BOT_BASIC = {
@@ -268,6 +287,18 @@ export const MOBS = {
     drops: [['shade_residue', 0.45], ['med_m', 0.08], ['cell_m', 0.05], ['reflex_chip', 0.015]] },
   brute: { name: 'Iron Brute', lv: 9, hp: 500, atk: 50, def: 10, exp: 120, speed: 38, w: 72, h: 60, kind: 'walker', aggro: 180, pound: true, heavy: true, gold: [25, 45],
     drops: [['brute_plate', 0.5], ['med_m', 0.12], ['rift_plate', 0.02], ['combat_helm', 0.02]] },
+  mirror_wraith: { name: 'Mirror Wraith', lv: 13, hp: 700, atk: 62, def: 14, exp: 190, speed: 60, w: 34, h: 60, kind: 'floater', aggro: 360, shoots: true, spread: true, blink: true, gold: [30, 55],
+    drops: [['mirror_shard', 0.45], ['med_m', 0.12], ['mirror_visor', 0.015]] },
+  glass_stalker: { name: 'Glass Stalker', lv: 14, hp: 820, atk: 70, def: 16, exp: 230, speed: 95, w: 40, h: 56, kind: 'walker', aggro: 320, stalk: true, gold: [35, 60],
+    drops: [['mirror_shard', 0.35], ['cell_m', 0.1], ['mirror_visor', 0.01]] },
+  echo_swarm: { name: 'Echo Swarm', lv: 16, hp: 520, atk: 70, def: 12, exp: 210, speed: 95, w: 30, h: 30, kind: 'floater', aggro: 300, dive: true, gold: [40, 70],
+    drops: [['void_core', 0.25], ['cell_m', 0.12]] },
+  void_maw: { name: 'Void Maw', lv: 17, hp: 1600, atk: 88, def: 22, exp: 380, speed: 40, w: 80, h: 66, kind: 'walker', aggro: 240, pull: true, heavy: true, gold: [60, 100],
+    drops: [['void_core', 0.45], ['med_m', 0.15], ['void_mantle', 0.012]] },
+  rei: { name: 'Rei, Rival Hunter', lv: 15, hp: 20000, atk: 80, def: 18, exp: 3000, speed: 150, w: 26, h: 58, kind: 'rival', aggro: 9999, gold: [1500, 2000],
+    drops: [['med_m', 1], ['mirror_visor', 0.5]] },
+  queen: { name: 'The Hollow Queen', lv: 22, hp: 70000, atk: 135, def: 26, exp: 12000, speed: 70, w: 110, h: 150, kind: 'boss', aggro: 9999, gold: [3000, 4000],
+    drops: [['queen_heart', 1], ['med_m', 2], ['hollow_chip', 0.4], ['hollow_crown', 0.35]] },
   sovereign: { name: 'Rift Sovereign', lv: 12, hp: 14000, atk: 64, def: 12, exp: 1500, speed: 90, w: 130, h: 110, kind: 'boss', aggro: 9999, gold: [800, 1200],
     drops: [['sovereign_core', 1], ['med_m', 1], ['sovereign_crown', 0.35], ['sovereign_chip', 0.3]] },
 };
@@ -354,16 +385,86 @@ export const MAPS = {
     name: 'The Rift Core', theme: 'rift', w: 1600, h: 700, floor: 640, lvText: 'Boss · Lv 12',
     plats: [[250, 530, 260], [1090, 530, 260], [620, 420, 360]],
     ropes: [],
-    portals: [{ id: 'west', x: 90, to: 'rooftop', tp: 'east' }],
-    boss: { type: 'sovereign', x: 1150 },
+    portals: [{ id: 'west', x: 90, to: 'rooftop', tp: 'east' }, { id: 'east', x: 1510, to: 'mirror', tp: 'west', need: 'story' }],
+    boss: { type: 'sovereign', x: 1150, until: 'story' },
     spawns: [],
   },
+};
+
+// ---------- Act 2 ----------
+Object.assign(MAPS, {
+  mirror: {
+    name: 'Shattered Mirror District', theme: 'mirror', w: 3200, h: 1000, floor: 940, lvText: 'Lv 12–16',
+    plats: [[150, 830, 500], [900, 830, 600], [1750, 830, 500], [2500, 830, 500],
+      [400, 715, 450], [1200, 720, 550], [2100, 715, 500],
+      [700, 600, 500], [1600, 600, 450], [2400, 605, 450]],
+    ropes: [[5, 0.15], [6, 0.85], [7, 0.5], [8, 0.2], [9, 0.6], [10, 0.8]],
+    npcs: [{ id: 'park2', x: 1600 }],
+    portals: [{ id: 'west', x: 90, to: 'rift', tp: 'east' }, { id: 'duel', x: 1600, to: 'duel', tp: 'west', need: 'q7' }, { id: 'east', x: 3110, to: 'abyss', tp: 'west', need: 'q7done' }],
+    spawns: [['glass_stalker', 0, 5], ['glass_stalker', 1, 1], ['glass_stalker', 2, 1], ['glass_stalker', 3, 1], ['glass_stalker', 4, 1],
+      ['mirror_wraith', 5, 2], ['mirror_wraith', 6, 2], ['mirror_wraith', 7, 2], ['mirror_wraith', 8, 1], ['mirror_wraith', 9, 2], ['mirror_wraith', 10, 1]],
+  },
+  abyss: {
+    name: 'The Abyss Line', theme: 'abyss', w: 3400, h: 1100, floor: 1040, lvText: 'Lv 16–20',
+    plats: [[200, 930, 600], [1050, 930, 700], [2000, 930, 600], [2800, 930, 450],
+      [450, 820, 500], [1300, 815, 600], [2250, 820, 550],
+      [250, 705, 450], [900, 700, 550], [1700, 700, 500], [2450, 705, 500],
+      [600, 590, 500], [1350, 585, 550], [2100, 590, 500]],
+    ropes: [[5, 0.1], [6, 0.9], [7, 0.5], [8, 0.8], [9, 0.3], [10, 0.5], [11, 0.7], [12, 0.2], [13, 0.5], [14, 0.8]],
+    portals: [{ id: 'west', x: 90, to: 'mirror', tp: 'east' }, { id: 'east', x: 3310, to: 'throne', tp: 'west', need: 'q10' }],
+    spawns: [['void_maw', 0, 4], ['void_maw', 1, 1], ['void_maw', 2, 1], ['void_maw', 3, 1],
+      ['echo_swarm', 5, 2], ['echo_swarm', 6, 2], ['echo_swarm', 7, 2], ['echo_swarm', 8, 1], ['echo_swarm', 9, 2],
+      ['echo_swarm', 10, 1], ['echo_swarm', 11, 1], ['echo_swarm', 12, 1], ['echo_swarm', 13, 2], ['echo_swarm', 14, 1]],
+  },
+  duel: {
+    name: 'Glasshouse Rooftop', theme: 'mirror', w: 1400, h: 700, floor: 640, lvText: 'Duel · Rei', music: 'rival',
+    plats: [[220, 520, 280], [900, 520, 280]],
+    ropes: [],
+    portals: [{ id: 'west', x: 90, to: 'mirror', tp: 'duel' }],
+    boss: { type: 'rei', x: 1000, until: 'q7done' },
+    spawns: [],
+  },
+  throne: {
+    name: 'Throne of Echoes', theme: 'throne', w: 1800, h: 760, floor: 700, lvText: 'Final Boss · Lv 22', music: 'throne',
+    plats: [[240, 580, 280], [1280, 580, 280], [700, 460, 400]],
+    ropes: [],
+    portals: [{ id: 'west', x: 90, to: 'abyss', tp: 'east' }],
+    boss: { type: 'queen', x: 1300 },
+    spawns: [],
+  },
+  arena_mirror: {
+    name: 'Op: Mirror Maze', theme: 'mirror', w: 1600, h: 700, floor: 640, lvText: 'Mission', instance: true, music: 'mission',
+    plats: [[180, 530, 300], [1120, 530, 300], [560, 420, 480], [220, 310, 260], [1120, 310, 260]],
+    ropes: [[1, 0.5], [2, 0.5], [3, 0.1], [3, 0.9], [4, 0.5], [5, 0.5]],
+    portals: [], spawnX: 800, spawns: [],
+  },
+  arena_abyss: {
+    name: 'Op: Abyss Surge', theme: 'abyss', w: 1600, h: 700, floor: 640, lvText: 'Mission', instance: true, music: 'mission',
+    plats: [[180, 530, 300], [1120, 530, 300], [560, 420, 480], [220, 310, 260], [1120, 310, 260]],
+    ropes: [[1, 0.5], [2, 0.5], [3, 0.1], [3, 0.9], [4, 0.5], [5, 0.5]],
+    portals: [], spawnX: 800, spawns: [],
+  },
+});
+MAPS.plaza.npcs.push({ id: 'soon', x: 1620 });
+MAPS.alley.npcs = [{ id: 'min', x: 330 }];
+MAPS.subway.npcs = [{ id: 'park', x: 330 }];
+
+// Portal requirements: a gate with `need` stays sealed until the condition holds (see portalOpen in player.js).
+export const PORTAL_NEEDS = {
+  story: 'The rift beyond the core is still unstable. Defeat the Rift Sovereign first.',
+  q7: 'The rooftop duel opens when Captain Yoon sends you after Rei.',
+  q7done: 'Rei is blocking the way east. Settle things with her first.',
+  q10: 'Something vast waits beyond. Captain Yoon will tell you when to go.',
 };
 
 export const NPCS = {
   captain: { name: 'Captain Yoon', role: 'quest', greet: 'Rifts are tearing open all over the city. GhostX needs every hunter we\'ve got. That means you.' },
   mina: { name: 'Dr. Mina', role: 'shop', wardrobe: true, shop: ['med_s', 'med_m', 'cell_s', 'cell_m', 'recall'],
     greet: 'Med packs, energy cells, recall beacons. Stay in one piece out there.' },
+  soon: { name: 'Grandma Soon', role: 'quest', greet: 'Hunters need to eat! Sit, sit. Can you do an old woman a favour?' },
+  min: { name: 'Little Min', role: 'quest', greet: 'Are you a real GhostX hunter?! Can you help me? Please?' },
+  park: { name: 'Conductor Park', role: 'quest', greet: 'Line 9 was my line for thirty years. The demons don\'t get to keep it.' },
+  park2: { name: 'Conductor Park', role: 'quest', greet: 'Followed you through the rift. Someone has to check the tickets.' },
   terminal: { name: 'Mission Terminal', role: 'missions', greet: 'GHOSTX TACTICAL NETWORK · Select an operation.' },
   jin: { name: 'Tech Jin', role: 'shop', lab: true, shop: ['hoverboard', 'kevlar', 'nano_jacket', 'street_cap', 'tac_visor', 'combat_helm'],
     greet: 'Gear\'s on the rack, and the lab can overclock your nanobots. Want a new partner? Finish a requisition for me and I\'ll build one.' },
@@ -392,6 +493,18 @@ export const MISSIONS = [
     desc: 'The Sovereign has reformed, stronger than before. Only the best hunters return from this.',
     waves: [[['sovereign', 1, 'ex']]],
     reward: { exp: 10000, gold: 7000, items: [['sovereign_crown', 0.5], ['sovereign_chip', 0.5]] } },
+  { id: 'm6', name: 'Mirror Maze', lv: 14, act2: true, arena: 'arena_mirror', par: 110,
+    desc: 'Stalkers and wraiths flood a glass atrium. Break every reflection.',
+    waves: [[['glass_stalker', 4]], [['mirror_wraith', 4], ['glass_stalker', 2]], [['mirror_wraith', 3], ['glass_stalker', 2, 'elite']]],
+    reward: { exp: 4000, gold: 2500, items: [['mirror_visor', 0.2], ['stim', 1]] } },
+  { id: 'm7', name: 'Abyss Surge', lv: 18, act2: true, arena: 'arena_abyss', par: 130,
+    desc: 'The void is pushing through. Hold the platform.',
+    waves: [[['echo_swarm', 6]], [['void_maw', 2], ['echo_swarm', 4]], [['void_maw', 2, 'elite'], ['echo_swarm', 4, 'elite']]],
+    reward: { exp: 9000, gold: 5000, items: [['void_mantle', 0.2], ['ward', 1]] } },
+  { id: 'm8', name: 'Hollow Throne EX', lv: 26, act2: true, post2: true, arena: 'arena_abyss', par: 240,
+    desc: 'The Queen\'s echo has returned. The hardest fight in the city.',
+    waves: [[['queen', 1, 'ex']]],
+    reward: { exp: 30000, gold: 15000, items: [['hollow_chip', 0.6], ['hollow_crown', 0.6]] } },
 ];
 
 export const GRADES = [
@@ -438,6 +551,18 @@ export const BOT_QUESTS = [
   { id: 'n11', name: 'Perfect Record', lv: 22, goal: { mission: { id: 'm4', grade: 'S' } }, reward: { exp: 12000, gold: 8000, pick: BOT_ORDER },
     offer: 'Last frame I\'ve got. Earn an S on Rift Breach.',
     progress: 'Mission Terminal · Rift Breach · grade S.', done: 'Flawless. The last frame is yours.' },
+  { id: 'n12', name: 'Mirror Frame', lv: 14, goal: { collect: { mirror_shard: 10 } }, reward: { exp: 4000, gold: 3000, pick: ['eclipse', 'nova', 'phantom', 'genesis'] },
+    offer: 'Mirror shards bend light around a core. Ten of them and I can build a mythic frame.',
+    progress: 'Mirror wraiths and glass stalkers drop shards in the Mirror District.', done: 'Mythic grade. I\'ve never built one before.' },
+  { id: 'n13', name: 'Void Frame', lv: 18, goal: { collect: { void_core: 10 } }, reward: { exp: 8000, gold: 5000, pick: ['eclipse', 'nova', 'phantom', 'genesis'] },
+    offer: 'Void cores for a second mythic. Ten of them.',
+    progress: 'Void maws and echo swarms on the Abyss Line.', done: 'Here. Try not to lose it in the dark.' },
+  { id: 'n14', name: 'Hollow Frame', lv: 22, goal: { collect: { queen_heart: 1 } }, reward: { exp: 12000, gold: 8000, pick: ['eclipse', 'nova', 'phantom', 'genesis'] },
+    offer: 'The Queen\'s heart. If anything can power a third mythic, that can.',
+    progress: 'The Hollow Queen waits on the Throne of Echoes.', done: 'It worked. Pick one.' },
+  { id: 'n15', name: 'Final Frame', lv: 26, goal: { mission: { id: 'm8' } }, reward: { exp: 20000, gold: 12000, pick: BOT_ORDER },
+    offer: 'Clear Hollow Throne EX and I\'ll finish the last mythic.',
+    progress: 'Mission Terminal · Hollow Throne EX.', done: 'Every frame I can build. You have them all.' },
 ];
 
 // Quests chain from Captain Yoon. goal.kill counts kills after accepting; goal.collect checks inventory.
@@ -472,4 +597,60 @@ export const QUESTS = [
     offer: 'We found the source. The Rift Sovereign is holding the main rift open from the core beyond the rooftops. End it.',
     progress: 'The Rift Core is through the eastern gate of the Skyline Rooftops.',
     done: 'The rift is closing. You did it, hunter. Metro Central owes you everything.' },
+  { id: 'q6', name: 'Echoes', lv: 12,
+    goal: { kill: { mirror_wraith: 10 } },
+    reward: { exp: 4000, gold: 2000, items: [['med_m', 10]] },
+    offer: 'The rift didn\'t close. It folded. There\'s a district on the other side that looks like ours, reflected. Go through the Rift Core\'s east gate and clear ten mirror wraiths.',
+    progress: 'The Shattered Mirror District is through the Rift Core\'s east gate.',
+    done: 'Ten down. Something else showed up on our scanners, though. Another hunter.' },
+  { id: 'q7', name: 'The Other Hunter', lv: 14,
+    goal: { kill: { rei: 1 } },
+    reward: { exp: 6000, gold: 3000, items: [['cell_m', 10]], outfits: ['acc_rei'] },
+    offer: 'Her name is Rei. Ex-GhostX. She\'s been hunting in the Mirror District alone and she\'s blocking the way east. She\'s waiting for you on the glasshouse rooftop, in the middle of the district. Talk sense into her. Or win.',
+    progress: 'The rooftop duel gate is in the middle of the Mirror District.',
+    done: 'She left you her ribbon? Huh. That\'s Rei for "you\'re alright".' },
+  { id: 'q8', name: 'Glass Hearts', lv: 15,
+    goal: { kill: { glass_stalker: 8 }, collect: { mirror_shard: 6 } },
+    reward: { exp: 7000, gold: 3500, items: [['stim', 3]] },
+    offer: 'Rei says the stalkers are how the Queen watches us. Take out eight and bring six shards so Jin can trace the signal.',
+    progress: 'Glass stalkers prowl the Mirror District floors.',
+    done: 'The signal leads down. Way down. Into the Abyss Line.' },
+  { id: 'q9', name: 'Into the Abyss', lv: 17,
+    goal: { kill: { void_maw: 8, echo_swarm: 12 } },
+    reward: { exp: 10000, gold: 5000, items: [['ward', 3]] },
+    offer: 'The Abyss Line is east of the Mirror District. Clear a path: eight void maws, twelve echo swarms.',
+    progress: 'The Abyss Line is past the Mirror District.',
+    done: 'The path is open. There\'s a throne at the end of the line.' },
+  { id: 'q10', name: 'The Hollow Queen', lv: 19,
+    goal: { kill: { queen: 1 } },
+    reward: { exp: 20000, gold: 10000, items: [['med_m', 20]] },
+    offer: 'The Hollow Queen is what the Sovereign was guarding. She\'s on the Throne of Echoes at the end of the Abyss Line. This is it, hunter. Bring everyone.',
+    progress: 'The Throne of Echoes is at the far end of the Abyss Line.',
+    done: 'It\'s over. Really over this time. Go home, hunter. You\'ve earned the quiet.' },
 ];
+
+// Side quests. Keyed by giver NPC id; each giver offers their chain in order.
+// goal.collect items with `questDrop` only drop while that quest is active.
+export const SIDE_QUESTS = {
+  soon: [
+    { id: 's1', name: 'Midnight Snack', lv: 3, goal: { collect: { demon_horn: 5 } }, reward: { exp: 300, gold: 300, items: [['med_m', 5]] },
+      offer: 'Imp horns make the best broth. Don\'t make that face. Bring me five.', progress: 'Rift imps in Neon Alley.', done: 'Mm! Take some tonic, you look thin.' },
+    { id: 's2', name: 'Secret Ingredient', lv: 9, goal: { collect: { shade_residue: 3, hound_fang: 3 } }, reward: { exp: 2000, gold: 800, outfits: ['hair_pink'] },
+      offer: 'My famous stew needs three shade residues and three hellhound fangs. Family recipe.', progress: 'Specters on the rooftops, hounds in the depot.', done: 'Here, dear, I dyed some hair wax for you. Very fashionable.' },
+  ],
+  min: [
+    { id: 's3', name: 'Lost Drone', lv: 2, goal: { collect: { toy_drone: 1 } }, reward: { exp: 200, gold: 200, outfits: ['acc_cat'] },
+      offer: 'An imp stole my toy drone! It\'s yellow! Please get it back!', progress: 'One of the imps in Neon Alley has it.', done: 'My drone!! You can have my cat ears. They make you fast. Probably.' },
+    { id: 's4', name: 'Brave Like You', lv: 6, goal: { kill: { wisp: 5, hound: 3 } }, reward: { exp: 900, gold: 500, items: [['stim', 3]] },
+      offer: 'I want to be a hunter too! Show me how. Beat five wisps and three hounds!', progress: 'Wisps in the alley, hounds in the depot.', done: 'Whoa. Okay. Maybe I\'ll start with homework.' },
+  ],
+  park: [
+    { id: 's5', name: 'Last Train', lv: 5, goal: { kill: { hound: 10 } }, reward: { exp: 800, gold: 600, items: [['recall', 5]] },
+      offer: 'Ten hounds between me and my last run. Clear them and I\'ll owe you.', progress: 'Hellhounds all over Line 9.', done: 'All aboard. Take these beacons. Best way home.' },
+  ],
+  park2: [
+    { id: 's6', name: 'Ghost Passenger', lv: 13, goal: { kill: { mirror_wraith: 8 } }, reward: { exp: 5000, gold: 2000, outfits: ['acc_conductor'] },
+      offer: 'Mirror wraiths keep riding without tickets. Eight of them. You\'re deputised.', progress: 'Mirror wraiths float all over this district.', done: 'Here. My spare cap. You\'ve earned the uniform.' },
+  ],
+};
+ITEMS.toy_drone.questDrop = { quest: 's3', from: 'imp', chance: 0.15 };

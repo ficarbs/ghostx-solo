@@ -12,7 +12,8 @@ const key = (code, type) => window.dispatchEvent(new KeyboardEvent(type, { code,
 const HOLD = ['KeyX', 'KeyZ', 'KeyA', 'KeyS', 'KeyD', 'KeyF', 'KeyQ', 'KeyW'];
 
 // Stat points are split 60% STR / 25% VIT / 15% DEX, as a typical player would.
-export async function simFight({ lv, sp, botLv, stars = 0, gear = {}, ex = false, maxT = 240, dist }) {
+// arena: 'rift' (Rift Sovereign), 'duel' (Rei) or 'throne' (Hollow Queen).
+export async function simFight({ lv, sp, botLv, stars = 0, gear = {}, ex = false, maxT = 240, dist, arena = 'rift', tune = 0 }) {
   const p = createPlayer('Sim');
   G.player = p;
   G.started = true;
@@ -27,12 +28,14 @@ export async function simFight({ lv, sp, botLv, stars = 0, gear = {}, ex = false
   Object.assign(p.equip, gear);
   p.inv[0] = { id: 'med_m', qty: 10 };
   p.inv[1] = { id: 'cell_m', qty: 10 };
-  p.storyDone = true;
+  p.storyDone = arena !== 'rift' || ex;
+  if (arena === 'duel') p.quests.q7 = { status: 'active', kills: {} };
+  p.enh = { head: tune, body: tune, chip: tune };
   recalc(p);
   p.hp = p.maxHp;
   p.mp = p.maxMp;
   if (ex) startMission('m5');
-  else travel('rift', 'west');
+  else travel(arena, 'west');
   window.__tick(3.5);
 
   const type = botType(p.bots[0]);

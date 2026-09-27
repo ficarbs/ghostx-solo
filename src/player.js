@@ -1,6 +1,7 @@
 // Player: stats, movement physics, ladders, nanobot-driven combat, combo meter, leveling, death.
 import { G } from './state.js';
-import { VIEW_W, ITEMS, BRANCHES, TUNE_BONUS, MAX_LV, GRAVITY, JUMP_V, RUN_SPEED, CLIMB_SPEED, INV_SIZE, BOT_BASIC, RANKS, COMBO_TIME, BOT_TYPES, expNeed } from './data.js';
+import { conditionMet } from './quests.js';
+import { VIEW_W, ITEMS, BRANCHES, TUNE_BONUS, PORTAL_NEEDS, MAX_LV, GRAVITY, JUMP_V, RUN_SPEED, CLIMB_SPEED, INV_SIZE, BOT_BASIC, RANKS, COMBO_TIME, BOT_TYPES, expNeed } from './data.js';
 import * as input from './input.js';
 import { addText, burst, shake, log, effect, banner, rand, clamp } from './fx.js';
 import { damageMob } from './mobs.js';
@@ -25,7 +26,7 @@ export function createPlayer(name, starter = 'kira') {
     inv: Array(INV_SIZE).fill(null),
     quests: {},
     bots: [], slots: [null, null, null], active: 0, seen: [starter], bestCombo: 0,
-    missions: {}, storyDone: false, playTime: 0,
+    missions: {}, storyDone: false, act2Done: false, scenes: {}, playTime: 0,
     enh: { head: 0, body: 0, chip: 0 },
     style: { hair: 'hair_black', jacket: 'jacket_gear', acc: 'acc_none' },
     owned: ['hair_black', 'jacket_gear', 'acc_none'],
@@ -328,9 +329,15 @@ export function interactTarget(p = G.player) {
   return null;
 }
 
+export const portalOpen = (pt) => !pt.need || conditionMet(pt.need);
+
 function tryPortal(p) {
   for (const pt of G.map.portals) {
     if (Math.abs(p.x - pt.x) < 32 && Math.abs(p.y - G.map.def.floor) < 4) {
+      if (!portalOpen(pt)) {
+        log(PORTAL_NEEDS[pt.need], 'warn');
+        return true;
+      }
       G.hooks.travel(pt.to, pt.tp);
       return true;
     }

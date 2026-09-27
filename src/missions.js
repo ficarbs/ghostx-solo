@@ -13,7 +13,8 @@ export const missionById = (id) => MISSIONS.find((m) => m.id === id);
 
 export function missionLocked(m) {
   const p = G.player;
-  if (m.post && !p.storyDone) return 'Defeat the Rift Sovereign to unlock';
+  if ((m.post || m.act2) && !p.storyDone) return 'Defeat the Rift Sovereign to unlock';
+  if (m.post2 && !p.act2Done) return 'Defeat the Hollow Queen to unlock';
   if (p.lv < m.lv) return `Requires level ${m.lv}`;
   return null;
 }

@@ -14,6 +14,7 @@ import { settings, updateSetting } from './settings.js';
 import { deleteSave } from './save.js';
 import { sfx, playMusic } from './audio.js';
 import { setRenderScale, buildLayers, drawPlayerPreview } from './render.js';
+import { playScene, cutsceneActive, frameCutscene } from './cutscene.js';
 import { tune, canTune, craft, canCraft, setBranch, branchesFor, branchOf, checkUnlocks, buyOutfit, wearOutfit, owns, unlockMet } from './workshop.js';
 import { RECIPES, TUNE_MAX, TUNE_BONUS, tuneCost, OUTFITS, UNLOCKS, RESPEC_COST } from './data.js';
 import { initTouch, refreshTouchSkills, applyTouchMode, touchEnabled, setAttackMode } from './touch.js';
@@ -76,13 +77,24 @@ export function initUI({ onNew, onContinue, hasSave }) {
   G.hooks.branchChoice = (b) => setTimeout(() => showBranchChoice(b, false), 1600);
   G.hooks.bossDown = (m) => {
     const p = G.player;
-    if (m.ex || p.storyDone) return;
-    p.storyDone = true;
-    setTimeout(showEnding, 3500);
+    if (m.ex) return;
+    if (m.type === 'sovereign' && !p.storyDone) {
+      p.storyDone = true;
+      setTimeout(() => showEnding('act1'), 3500);
+    } else if (m.type === 'rei') {
+      setTimeout(() => playScene('rival_post'), 2600);
+    } else if (m.type === 'queen' && !p.act2Done) {
+      p.act2Done = true;
+      setTimeout(() => playScene('queen_post', () => showEnding('act2')), 3200);
+    }
   };
   G.hooks.mapChanged = () => {
     closeWin('shop');
     els.miniName.textContent = G.map.def.name;
+    // First visit to a story location plays its scene.
+    const id = G.map.id;
+    const scene = id === 'mirror' ? 'mirror_enter' : id === 'abyss' ? 'abyss_enter' : id === 'duel' && G.boss ? 'rival_pre' : id === 'throne' && G.boss ? 'queen_pre' : null;
+    if (scene) setTimeout(() => playScene(scene), 900);
   };
 
   buildWindows();
@@ -169,6 +181,11 @@ function fitStage() {
 
 export function frameUI(dt) {
   const p = G.player;
+  if (cutsceneActive()) {
+    G.ui.blocking = true;
+    frameCutscene(dt);
+    return;
+  }
   if (input.wasPressed('esc')) handleEsc();
   if (!G.started || !p) return;
   els.ui.classList.add('playing');
@@ -311,7 +328,7 @@ function drawMinimap() {
   x.fillStyle = '#8affb0';
   for (const n of m.npcs) x.fillRect(ox + n.x * s - 1.5, oy + m.def.floor * s - 5, 3, 5);
   x.fillStyle = '#ff5a6a';
-  for (const mb of G.mobs) if (mb.alive) x.fillRect(ox + mb.x * s - 1.5, oy + (mb.y - 6) * s - 1.5, mb.d.kind === 'boss' ? 5 : 3, 3);
+  for (const mb of G.mobs) if (mb.alive) x.fillRect(ox + mb.x * s - 1.5, oy + (mb.y - 6) * s - 1.5, mb.big ? 5 : 3, 3);
   const p = G.player;
   x.fillStyle = '#ffe14a';
   x.beginPath(); x.arc(ox + p.x * s, oy + (p.y - 8) * s, 3, 0, Math.PI * 2); x.fill();
@@ -615,6 +632,7 @@ function helpHTML() {
     <p><b>Dodging:</b> rolls and air dashes make you briefly invulnerable. Dodge an attack at the last instant for a <b>Perfect</b>: slow-motion, +15% Sync, and +30% damage for 1.5s. Swap nanobots right after a hit for a free <b>Swap Strike</b> from the incoming bot. Watch for the red <b>!</b>: that demon is about to attack.</p>
     <p><b>Combos:</b> keep hitting to climb the ranks from D to SSS for bonus EXP and damage. Getting hit breaks the combo. Hits fill the <b>Sync</b> gauge. At 100%, press F.</p>
     <p><b>Mission Terminal</b> (east side of Metro Central): repeatable wave operations graded S–C, with elite demons and better nanobot drops.</p>
+    <p><b>Act 2:</b> after the Rift Sovereign falls, the Rift Core's east gate opens onto the Shattered Mirror District, the Abyss Line, and the Throne of Echoes. Sealed gates (red bars) open as the story progresses. Look for <b>!</b> over townsfolk for side quests.</p>
     <p class="dim">Route: Metro Central → Neon Alley → Line 9 Depot → Skyline Rooftops → Rift Core. Autosaves. On macOS, use Z instead of Ctrl to attack.</p>
   </div>`;
 }
@@ -800,7 +818,7 @@ function closeDialog() {
 
 function talkTo(id) {
   const npc = NPCS[id];
-  if (npc.role === 'quest') return talkGiver('captain');
+  if (npc.role === 'quest') return talkGiver(id);
   if (npc.role === 'missions') {
     sfx('ui');
     return showWin('missions');
@@ -842,7 +860,7 @@ const GIVER_TEXT = {
 // Talk to a quest giver: offer, show progress, or turn in their current quest.
 function talkGiver(giver) {
   const name = NPCS[giver].name;
-  const tx = GIVER_TEXT[giver];
+  const tx = GIVER_TEXT[giver] || { none: 'Thank you again, hunter. You\'ve done more than enough.', noneBtn: 'Take care', low: 'Come back when you\'re a little stronger. Level', lowBtn: 'OK', go: 'On it' };
   const q = currentQuest(giver);
   const p = G.player;
   if (!q) return showDialog('npc', name, tx.none, [{ label: tx.noneBtn, fn: closeDialog }]);
@@ -976,14 +994,31 @@ function togglePause() {
   $('#pause').classList.toggle('hidden', !G.paused);
 }
 
-function showEnding() {
+const ENDINGS = {
+  act1: {
+    title: 'THE RIFT IS SEALED',
+    text: `<p>The Sovereign's core goes dark, and the tear over the city folds in on itself. For the first time in months, Metro Central's neon hums without an echo from the other side.</p>
+    <p>Captain Yoon's report is three words long: <i>"Hunter did it."</i> Your nanobots are already arguing about who deserves the credit.</p>`,
+    unlock: 'Unlocked: <b>Act 2</b> (Captain Yoon has news), plus <b>Rift Breach</b>, <b>Sovereign EX</b>, <b>Mirror Maze</b> and <b>Abyss Surge</b> at the Mission Terminal.',
+    next: 'Report to Captain Yoon to close out the operation.',
+  },
+  act2: {
+    title: 'THE ECHOES FADE',
+    text: `<p>The Hollow Queen breaks like glass. On both sides of the mirror, every rift reads zero. The folded district slowly empties of monsters.</p>
+    <p>Somewhere on a rooftop, Rei is pretending she isn't smiling. Metro Central sleeps without an echo.</p>`,
+    unlock: 'Unlocked: <b>Hollow Throne EX</b> at the Mission Terminal, the <b>Hollow White</b> hair outfit, and the final mythic requisitions from Tech Jin.',
+    next: 'Report to Captain Yoon for the last debrief.',
+  },
+};
+
+function showEnding(which = 'act1') {
   const p = G.player;
+  const E = ENDINGS[which];
   const el = $('#ending');
   const cleared = Object.values(p.missions).reduce((a, r) => a + r.clears, 0);
   el.innerHTML = `<div class="e-card">
-    <div class="e-title">THE RIFT IS SEALED</div>
-    <p>The Sovereign's core goes dark, and the tear over the city folds in on itself. For the first time in months, Metro Central's neon hums without an echo from the other side.</p>
-    <p>Captain Yoon's report is three words long: <i>"Hunter did it."</i> Your nanobots are already arguing about who deserves the credit.</p>
+    <div class="e-title">${E.title}</div>
+    ${E.text}
     <div class="e-stats">
       <div><small>Hunter</small><b>${esc(p.name)} · Lv ${p.lv}</b></div>
       <div><small>Time</small><b>${fmtTime(p.playTime / 60).replace(':', 'h ')}m</b></div>
@@ -991,8 +1026,8 @@ function showEnding() {
       <div><small>Nanodex</small><b>${p.seen.length} / ${BOT_ORDER.length}</b></div>
       <div><small>Missions cleared</small><b>${cleared}</b></div>
     </div>
-    <p>Report to Captain Yoon to close out the operation.</p>
-    <p class="gold">Post-game unlocked: <b>Rift Breach</b> and <b>Sovereign EX</b> at the Mission Terminal. The level cap is 30, and there are still nanobots to find.</p>
+    <p>${E.next}</p>
+    <p class="gold">${E.unlock}</p>
     <div class="e-credits">GhostX Solo · a fan-made tribute to GhostX Ultimate (GameKiss, 2011) · all art and audio procedurally generated</div>
     <button class="primary" id="ending-close">Continue hunting</button>
   </div>`;
@@ -1004,6 +1039,7 @@ function showEnding() {
     G.paused = false;
     playMusic(G.map.def.music || G.map.def.theme);
     G.hooks.save?.();
+    if (which === 'act1') setTimeout(() => playScene('act2_intro'), 500);
   });
 }
 

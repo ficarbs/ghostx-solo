@@ -2,6 +2,7 @@
 import { G } from './state.js';
 import { MAPS } from './data.js';
 import { spawnMob } from './mobs.js';
+import { conditionMet } from './quests.js';
 import { buildMapArt } from './render.js';
 import { banner, rand } from './fx.js';
 import { sfx, playMusic } from './audio.js';
@@ -43,7 +44,8 @@ export function loadMap(id) {
       G.spawners.push(s);
     }
   }
-  if (def.boss) spawnMob(def.boss.type, plats[0], def.boss.x);
+  // Story bosses stop respawning once their chapter is done (the arena becomes a passage).
+  if (def.boss && !(def.boss.until && conditionMet(def.boss.until))) spawnMob(def.boss.type, plats[0], def.boss.x);
   buildMapArt(G.map);
 }
 

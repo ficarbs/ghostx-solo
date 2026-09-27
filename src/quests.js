@@ -1,14 +1,28 @@
 // Two quest chains: the story from Captain Yoon, and nanobot requisitions from Tech Jin.
 // Each chain offers one quest at a time, in order. Requisitions are the only source of new nanobots.
 import { G } from './state.js';
-import { QUESTS, BOT_QUESTS, ITEMS, MOBS, BOTS, MISSIONS, GRADES, CURRENCY } from './data.js';
+import { QUESTS, BOT_QUESTS, SIDE_QUESTS, OUTFITS, ITEMS, MOBS, BOTS, MISSIONS, GRADES, CURRENCY } from './data.js';
 import { countItem, removeItem, addItem, canAdd } from './items.js';
 import { gainExp } from './player.js';
 import { addBot } from './bots.js';
 import { log, banner } from './fx.js';
 
-export const CHAINS = { captain: QUESTS, jin: BOT_QUESTS };
-export const ALL_QUESTS = [...QUESTS, ...BOT_QUESTS];
+export const CHAINS = { captain: QUESTS, jin: BOT_QUESTS, ...SIDE_QUESTS };
+export const ALL_QUESTS = Object.values(CHAINS).flat();
+
+// Story/world conditions used by gated portals and bosses.
+export function conditionMet(key) {
+  const p = G.player;
+  if (!p) return false;
+  if (key === 'story') return !!p.storyDone;
+  if (key === 'act2') return !!p.act2Done;
+  const m = key.match(/^(q\d+)(done)?$/);
+  if (m) {
+    const st = p.quests[m[1]]?.status;
+    return m[2] ? st === 'done' : st === 'active' || st === 'done';
+  }
+  return false;
+}
 
 export function questState(id) {
   return G.player?.quests[id];
@@ -111,6 +125,11 @@ export function completeQuest(q, sp) {
   p.gold += q.reward.gold || 0;
   for (const [id, n] of items) addItem(id, n);
   if (sp) addBot(sp);
+  for (const id of q.reward.outfits || []) {
+    if (!p.owned.includes(id)) p.owned.push(id);
+    const o = Object.values(OUTFITS).flat().find((x) => x.id === id);
+    log(`New outfit: ${o ? o.name : id}! Wear it from the Wardrobe.`, 'rare');
+  }
   log(`Quest complete: ${q.name}! +${q.reward.gold} ${CURRENCY}`, 'lvl');
   if (!sp) banner('QUEST COMPLETE', q.name);
   gainExp(q.reward.exp);

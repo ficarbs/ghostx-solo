@@ -131,6 +131,11 @@ const TRACKS = {
   rift: { bpm: 142, root: 41, prog: [0, 1, 0, 6], lead: true, drums: 3, boss: true },
   mission: { bpm: 134, root: 44, prog: [0, 6, 5, 4], lead: true, drums: 3 },
   ending: { bpm: 84, root: 52, prog: [0, 5, 2, 4], lead: true, drums: 0 },
+  mirror: { bpm: 118, root: 49, prog: [0, 2, 5, 4], lead: true, drums: 2 },
+  abyss: { bpm: 104, root: 40, prog: [0, 1, 0, 5], lead: false, drums: 2 },
+  throne: { bpm: 150, root: 42, prog: [0, 6, 1, 5], lead: true, drums: 3, boss: true },
+  rival: { bpm: 146, root: 46, prog: [0, 3, 6, 5], lead: true, drums: 3 },
+  scene: { bpm: 72, root: 50, prog: [0, 5, 3, 4], lead: false, drums: 0 },
 };
 const MINOR = [0, 2, 3, 5, 7, 8, 10];
 const midi = (n) => 440 * Math.pow(2, (n - 69) / 12);

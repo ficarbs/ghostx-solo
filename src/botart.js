@@ -10,7 +10,7 @@ function glow(x, color, r) {
 }
 
 // Shell color by rarity: common white, rare pale steel, epic gunmetal.
-const SHELL = ['#e8eef8', '#e8eef8', '#b8cce8', '#3a3e52'];
+const SHELL = ['#e8eef8', '#e8eef8', '#b8cce8', '#3a3e52', '#1a1410'];
 
 // Companion form, centered at (0,0), roughly 26px across at stage 1.
 // `flat` skips the soft glow so the drawing can be baked into a crisp pixel sprite.
@@ -26,7 +26,10 @@ export function drawBot(x, type, stage, color, t = 0, rarity = 1, flat = false) 
   x.strokeStyle = 'rgba(0,0,0,0.55)';
   x.lineWidth = 1.5;
   const body = SHELL[rarity] || SHELL[1];
-  if (rarity >= 3) {
+  if (rarity >= 4) {
+    x.strokeStyle = '#ffd24a';
+    x.lineWidth = 2;
+  } else if (rarity >= 3) {
     x.strokeStyle = color;
     x.lineWidth = 1.5;
   }

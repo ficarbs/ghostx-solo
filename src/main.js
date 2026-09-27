@@ -72,7 +72,7 @@ function step(dt) {
     return;
   }
   pollGamepad();
-  if (G.started && G.paused) {
+  if (G.started && (G.paused || G.cutscene)) {
     render();
     frameUI(dt);
     endFrame();
