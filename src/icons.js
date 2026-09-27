@@ -1,6 +1,7 @@
 // Procedurally drawn 32x32 icons for items, skills and nanobots, cached as canvases + data URLs.
 import { ITEMS, BOTS, BOT_TYPES } from './data.js';
 import { drawBot } from './botart.js';
+import { pixelizeIcon } from './pixel.js';
 
 const cache = new Map();
 
@@ -12,7 +13,8 @@ function make(key, draw, size = 32) {
   x.lineCap = 'round';
   x.lineJoin = 'round';
   draw(x);
-  const rec = { canvas: c, url: c.toDataURL() };
+  const px = pixelizeIcon(c, 2);
+  const rec = { canvas: px, url: px.toDataURL() };
   cache.set(key, rec);
   return rec;
 }

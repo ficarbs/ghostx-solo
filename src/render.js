@@ -7,8 +7,17 @@ import { MELEE_TIME } from './player.js';
 import { elderMarker } from './quests.js';
 import { activeBot, botType, botColor, stageOf } from './bots.js';
 import { drawBot, drawWeapon } from './botart.js';
+import { crispen, silhouette } from './pixel.js';
 
-let ctx;
+// Rendering runs in two passes. The world is drawn into a low-res buffer (one pixel = PX design units)
+// and upscaled with hard edges for the pixel-art look; characters are baked into crisp outlined sprites.
+// Text (damage numbers, name tags, bubbles) is drawn afterwards on the full-resolution screen.
+export const PX = 2;
+let ctx; // current drawing target: the low-res world buffer, the screen, or a sprite being baked
+let main; // on-screen canvas
+let lo, lctx; // low-res world buffer
+let k = 1; // screen pixels per low-res pixel
+let BAKING = false; // true while drawing into a sprite bake: soft glows are skipped (drawn live instead)
 const PI = Math.PI;
 const NEON = ['#ff4a8a', '#40e0ff', '#ffe040', '#a060ff', '#5aff9a'];
 const SIGNS = ['노래방', 'PC방', '편의점', '치킨', 'HOTEL', '24H', 'CAFE', 'GAME', '약국', 'BAR'];
@@ -22,21 +31,82 @@ const THEMES = {
 };
 
 export function initRender(canvas) {
-  ctx = canvas.getContext('2d');
+  main = canvas.getContext('2d');
+  lo = document.createElement('canvas');
+  lctx = lo.getContext('2d');
+  ctx = lctx;
 }
 
-// Render the canvas at the on-screen pixel density so it stays sharp at any window size.
-// Capped at 2x the design size to keep full-screen fills cheap.
-let res = 1;
+// Size the low-res buffer to the view, and the screen canvas to a whole multiple of it so every
+// art pixel lands on the same number of screen pixels.
 export function setRenderScale(s) {
-  res = Math.max(0.5, Math.min(2, s));
-  const c = ctx.canvas;
-  const w = Math.round(VIEW_W * res), h = Math.round(VIEW_H * res);
-  if (c.width !== w || c.height !== h) {
-    c.width = w;
-    c.height = h;
+  const lw = Math.ceil(VIEW_W / PX), lh = Math.ceil(VIEW_H / PX);
+  if (lo.width !== lw || lo.height !== lh) {
+    lo.width = lw;
+    lo.height = lh;
+  }
+  k = Math.max(1, Math.min(4, Math.round(s * PX)));
+  const c = main.canvas;
+  if (c.width !== lw * k || c.height !== lh * k) {
+    c.width = lw * k;
+    c.height = lh * k;
   }
 }
+
+// ---------- Sprite baking ----------
+
+const sprites = new Map();
+const flashes = new WeakMap();
+
+// Draw a frame once into a small canvas at art resolution, crispen it, and cache it by key.
+// box = [x0, y0, w, h] in design units around the sprite's anchor (feet / centre).
+function bake(key, box, draw) {
+  let c = sprites.get(key);
+  if (c) return c;
+  const [x0, y0, w, h] = box;
+  c = document.createElement('canvas');
+  c.width = Math.ceil(w / PX) + 2;
+  c.height = Math.ceil(h / PX) + 2;
+  const bx = c.getContext('2d');
+  bx.lineCap = 'round';
+  bx.lineJoin = 'round';
+  bx.setTransform(1 / PX, 0, 0, 1 / PX, 1 - x0 / PX, 1 - y0 / PX);
+  const prev = ctx, wasBaking = BAKING;
+  ctx = bx;
+  BAKING = true;
+  try {
+    draw();
+  } finally {
+    ctx = prev;
+    BAKING = wasBaking;
+  }
+  crispen(c);
+  c.ox = 1 - x0 / PX;
+  c.oy = 1 - y0 / PX;
+  if (sprites.size > 3000) sprites.clear();
+  sprites.set(key, c);
+  return c;
+}
+
+function flashOf(c) {
+  let f = flashes.get(c);
+  if (!f) flashes.set(c, (f = silhouette(c)));
+  return f;
+}
+
+// Draw a baked sprite with its anchor at world (x, y), snapped to the art-pixel grid.
+function blit(c, x, y, flip = 1) {
+  ctx.save();
+  ctx.translate(Math.round(x / PX) * PX, Math.round(y / PX) * PX);
+  if (flip < 0) ctx.scale(-1, 1);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(c, -c.ox * PX, -c.oy * PX, c.width * PX, c.height * PX);
+  ctx.restore();
+}
+
+// Text queued during the world pass, drawn crisp in the screen pass.
+let overlay = null;
+const later = (fn) => (overlay ? overlay.push(fn) : fn());
 
 function rng(seed) {
   let a = seed >>> 0;
@@ -463,19 +533,27 @@ export function updateCamera(dt) {
 // ---------- Frame ----------
 
 export function render() {
-  ctx.setTransform(res, 0, 0, res, 0, 0);
-  if (!G.started || !G.map) return renderTitle();
+  ctx = lctx;
+  lctx.setTransform(1 / PX, 0, 0, 1 / PX, 0, 0);
+  lctx.imageSmoothingEnabled = true;
+  if (!G.started || !G.map) {
+    renderTitle();
+    present();
+    return;
+  }
   const map = G.map, th = map.theme, cam = G.cam;
+  overlay = [];
   drawSky(th, map);
   const camBottom = maxCamY(map);
   for (const L of map.layers) {
     const oy = -120 + (camBottom - cam.y) * L.f * 0.5;
-    ctx.drawImage(L.c, Math.round(-cam.x * L.f), Math.round(oy));
+    ctx.drawImage(L.c, Math.round((-cam.x * L.f) / PX) * PX, Math.round(oy / PX) * PX);
   }
 
-  ctx.save();
   const sx = (Math.random() - 0.5) * G.cam.shake, sy = (Math.random() - 0.5) * G.cam.shake;
-  ctx.translate(Math.round(-cam.x + sx), Math.round(-cam.y + sy));
+  const cx = Math.round((-cam.x + sx) / PX) * PX, cy = Math.round((-cam.y + sy) / PX) * PX;
+  ctx.save();
+  ctx.translate(cx, cy);
   ctx.drawImage(map.art, 0, 0);
 
   for (const pt of map.portals) drawPortal(pt, map.def.floor);
@@ -488,9 +566,6 @@ export function render() {
   for (const pr of G.projs) drawProj(pr);
   for (const e of G.effects) drawEffect(e);
   drawParticles();
-  drawTexts();
-  drawHints(map);
-  drawBubble();
   ctx.restore();
 
   ctx.fillStyle = th.fog;
@@ -500,6 +575,26 @@ export function render() {
     ctx.fillStyle = 'rgba(20,0,10,0.35)';
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
   }
+  present();
+
+  // Screen pass: crisp text over the upscaled world.
+  ctx = main;
+  main.setTransform(k / PX, 0, 0, k / PX, 0, 0);
+  main.save();
+  main.translate(cx, cy);
+  for (const fn of overlay) fn();
+  drawTexts();
+  drawHints(map);
+  drawBubble();
+  main.restore();
+  overlay = null;
+  ctx = lctx;
+}
+
+function present() {
+  main.setTransform(1, 0, 0, 1, 0, 0);
+  main.imageSmoothingEnabled = false;
+  main.drawImage(lo, 0, 0, main.canvas.width, main.canvas.height);
 }
 
 function drawSky(th, map) {
@@ -566,15 +661,16 @@ function drawPortal(pt, floor) {
   ctx.restore();
 }
 
-function nameTag(text, x, y, color = '#fff', bg = 'rgba(10,8,20,0.65)') {
-  ctx.font = 'bold 11px "Trebuchet MS", sans-serif';
-  const w = ctx.measureText(text).width + 10;
-  ctx.fillStyle = bg;
-  roundRect(x - w / 2, y, w, 15, 4);
-  ctx.fill();
-  ctx.fillStyle = color;
-  ctx.textAlign = 'center';
-  ctx.fillText(text, x, y + 11);
+function nameTag(text, x, y, color = '#fff', bg = 'rgba(10,8,20,0.7)') {
+  later(() => {
+    ctx.font = '12px "Pixelify Sans", "Trebuchet MS", sans-serif';
+    const w = Math.ceil(ctx.measureText(text).width) + 10;
+    ctx.fillStyle = bg;
+    ctx.fillRect(Math.round(x - w / 2), y, w, 15);
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.fillText(text, x, y + 11.5);
+  });
 }
 
 function roundRect(x, y, w, h, r) {
@@ -626,13 +722,43 @@ function face(x, y, skin, hair, style) {
 
 function drawNpc(n, floor) {
   const t = G.time;
-  const bob = Math.sin(t * 2 + n.x) * 1;
   const facing = G.player.x < n.x ? -1 : 1;
+  const f = Math.floor(t * 1.4 + n.x * 0.01) % 2;
+  const tf = n.id === 'terminal' ? Math.floor(t * 3) % 4 : 0;
   ctx.save();
   ctx.translate(n.x, floor);
   shadow(0, 0, 18);
-  ctx.scale(facing, 1);
+  if (n.id === 'terminal') {
+    const hg = ctx.createLinearGradient(0, -110, 0, -48);
+    hg.addColorStop(0, 'rgba(64,224,255,0)');
+    hg.addColorStop(1, 'rgba(64,224,255,0.35)');
+    ctx.fillStyle = hg;
+    ctx.beginPath(); ctx.moveTo(-30, -104); ctx.lineTo(30, -104); ctx.lineTo(16, -48); ctx.lineTo(-16, -48); ctx.fill();
+  }
+  ctx.restore();
+  const spr = bake(`N|${n.id}|${f}|${tf}`, [-44, -116, 88, 122], () => npcBody(n.id, f ? -2 : 0, tf));
+  blit(spr, n.x, floor, facing);
+
+  nameTag(NPCS[n.id].name, n.x, floor + 4, '#bfe6ff');
   if (n.id === 'captain') {
+    const mk = elderMarker();
+    if (mk) {
+      later(() => {
+        ctx.font = '28px "Press Start 2P", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = mk === '?' ? '#8affb0' : '#ffd84a';
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 4;
+        const y = floor - 92 + (Math.floor(t * 4) % 2) * 4;
+        ctx.strokeText(mk, n.x, y);
+        ctx.fillText(mk, n.x, y);
+      });
+    }
+  }
+}
+
+function npcBody(id, bob, tf) {
+  if (id === 'captain') {
     legs(0, '#1a1e2c', 0, '#111');
     ctx.fillStyle = '#23304a';
     ctx.beginPath(); ctx.moveTo(-11, -48 + bob); ctx.lineTo(11, -48 + bob); ctx.lineTo(13, -14); ctx.lineTo(-13, -14); ctx.closePath(); ctx.fill();
@@ -643,18 +769,18 @@ function drawNpc(n, floor) {
     ctx.fillStyle = '#23304a';
     ctx.fillRect(-10, -72 + bob, 22, 6); ctx.fillRect(-4, -68 + bob, 20, 3);
     ctx.fillStyle = '#e8c040'; ctx.fillRect(0, -71 + bob, 4, 3);
-  } else if (n.id === 'mina') {
+  } else if (id === 'mina') {
     legs(0, '#2a2e38', 0, '#e8eef8');
     ctx.fillStyle = '#f4f6fa';
     ctx.beginPath(); ctx.moveTo(-11, -48 + bob); ctx.lineTo(11, -48 + bob); ctx.lineTo(14, -8); ctx.lineTo(-14, -8); ctx.closePath(); ctx.fill();
     ctx.fillStyle = '#5aff9a'; ctx.fillRect(-2, -46 + bob, 4, 18);
     face(1, -58 + bob, '#f1c9a0', '#3a2418', 'bun');
     ctx.fillStyle = '#3a2418'; ctx.beginPath(); ctx.arc(-6, -68 + bob, 5, 0, PI * 2); ctx.fill();
-    ctx.strokeStyle = '#111'; ctx.lineWidth = 1.2;
-    ctx.strokeRect(2, -60 + bob, 6, 4);
+    ctx.fillStyle = '#111';
+    ctx.fillRect(2, -60 + bob, 7, 2);
     ctx.fillStyle = '#40e0ff'; ctx.fillRect(10, -36 + bob, 10, 14);
-    ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fillRect(12, -34 + bob, 6, 2);
-  } else if (n.id === 'terminal') {
+    ctx.fillStyle = '#d8f8ff'; ctx.fillRect(12, -34 + bob, 6, 2);
+  } else if (id === 'terminal') {
     ctx.fillStyle = '#1a2030';
     ctx.fillRect(-16, -44, 32, 44);
     ctx.fillStyle = '#2a3448';
@@ -662,17 +788,10 @@ function drawNpc(n, floor) {
     ctx.fillStyle = '#40e0ff';
     ctx.fillRect(-10, -36, 20, 3);
     ctx.fillRect(-10, -28, 14, 3);
-    const hg = ctx.createLinearGradient(0, -110, 0, -48);
-    hg.addColorStop(0, 'rgba(64,224,255,0)');
-    hg.addColorStop(1, 'rgba(64,224,255,0.35)');
-    ctx.fillStyle = hg;
-    ctx.beginPath(); ctx.moveTo(-30, -104 + bob); ctx.lineTo(30, -104 + bob); ctx.lineTo(16, -48); ctx.lineTo(-16, -48); ctx.fill();
-    ctx.strokeStyle = 'rgba(160,240,255,0.8)';
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(-26, -100 + bob, 52, 30);
-    ctx.fillStyle = 'rgba(160,240,255,0.8)';
-    for (let i = 0; i < 4; i++) ctx.fillRect(-22, -95 + bob + i * 7, 12 + ((i * 17 + Math.floor(t * 3)) % 28), 2);
-  } else if (n.id === 'jin') {
+    ctx.fillStyle = '#a0f0ff';
+    ctx.fillRect(-26, -100, 52, 2); ctx.fillRect(-26, -72, 52, 2); ctx.fillRect(-26, -100, 2, 30); ctx.fillRect(24, -100, 2, 30);
+    for (let i = 0; i < 3; i++) ctx.fillRect(-20, -94 + i * 8, 10 + ((i * 17 + tf * 7) % 28), 3);
+  } else if (id === 'jin') {
     legs(0, '#c86a20', 0, '#3a2a1a');
     ctx.fillStyle = '#e07a2a';
     ctx.fillRect(-14, -50 + bob, 28, 32);
@@ -684,22 +803,6 @@ function drawNpc(n, floor) {
     ctx.fillStyle = '#2a2e38'; ctx.fillRect(-9, -68 + bob, 20, 5);
     ctx.fillStyle = '#ffb040'; ctx.fillRect(-6, -67 + bob, 6, 3); ctx.fillRect(3, -67 + bob, 6, 3);
     ctx.fillStyle = '#8a90a0'; ctx.fillRect(17, -42 + bob, 4, 22); ctx.fillRect(13, -46 + bob, 12, 6);
-  }
-  ctx.restore();
-  const info = NPCS[n.id];
-  nameTag(info.name, n.x, floor + 4, '#bfe6ff');
-  if (n.id === 'captain') {
-    const mk = elderMarker();
-    if (mk) {
-      ctx.font = 'bold 26px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillStyle = mk === '?' ? '#8affb0' : '#ffd84a';
-      ctx.strokeStyle = '#000';
-      ctx.lineWidth = 3;
-      const y = floor - 92 + Math.sin(t * 4) * 4;
-      ctx.strokeText(mk, n.x, y);
-      ctx.fillText(mk, n.x, y);
-    }
   }
 }
 
@@ -733,12 +836,14 @@ function drawDrop(d) {
   } else {
     const ic = itemIcon(d.id).canvas;
     if (ITEMS[d.id].rare) {
-      const g = ctx.createRadialGradient(d.x, d.y - 12 + bob, 2, d.x, d.y - 12 + bob, 22);
+      const g = ctx.createRadialGradient(d.x, d.y - 14 + bob, 2, d.x, d.y - 14 + bob, 24);
       g.addColorStop(0, 'rgba(255,220,120,0.6)');
       g.addColorStop(1, 'rgba(255,220,120,0)');
       ctx.fillStyle = g;
-      ctx.fillRect(d.x - 24, d.y - 36 + bob, 48, 48);
+      ctx.fillRect(d.x - 26, d.y - 40 + bob, 52, 52);
     }
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(ic, Math.round((d.x - 16) / PX) * PX, Math.round((d.y - 30 + bob) / PX) * PX, 32, 32);
     ctx.drawImage(ic, d.x - 12, d.y - 24 + bob, 24, 24);
   }
   ctx.globalAlpha = 1;
@@ -764,12 +869,14 @@ function drawProj(pr) {
 }
 
 function drawDrone(d) {
-  ctx.save();
-  ctx.translate(d.x, d.y);
-  ctx.scale(0.6, 0.6);
+  const f = Math.floor(G.time * 5) % 2;
+  const spr = bake(`D|${f}`, [-24, -24, 48, 48], () => {
+    ctx.scale(0.6, 0.6);
+    drawBot(ctx, 'medic', 1, '#60f0a0', f ? 0.16 : 0, 1, true);
+  });
   ctx.globalAlpha = d.life - d.t < 1 ? Math.max(0, d.life - d.t) : 1;
-  drawBot(ctx, 'medic', 1, '#60f0a0', G.time);
-  ctx.restore();
+  blit(spr, d.x, d.y);
+  ctx.globalAlpha = 1;
 }
 
 function drawParticles() {
@@ -795,7 +902,7 @@ function drawTexts() {
     const [col, size] = TEXT_STYLE[t.kind] || TEXT_STYLE.info;
     const pop = t.t < 0.1 ? 1 + (0.1 - t.t) * 5 : 1;
     ctx.globalAlpha = t.t > 0.7 ? Math.max(0, 1 - (t.t - 0.7) / 0.4) : 1;
-    ctx.font = `900 ${Math.round(size * pop)}px "Trebuchet MS", Impact, sans-serif`;
+    ctx.font = `700 ${Math.round(size * pop)}px "Pixelify Sans", "Trebuchet MS", sans-serif`;
     ctx.strokeStyle = 'rgba(0,0,0,0.85)';
     ctx.lineWidth = 4;
     ctx.strokeText(t.text, t.x, t.y);
@@ -818,7 +925,7 @@ function drawBubble() {
   const b = G.bubble, p = G.player;
   if (!b || p.dead || p.botX == null) return;
   const x = p.botX, y = p.botY - 26;
-  ctx.font = 'bold 11px "Trebuchet MS", sans-serif';
+  ctx.font = '12px "Pixelify Sans", "Trebuchet MS", sans-serif';
   const w = ctx.measureText(b.text).width + 14;
   ctx.globalAlpha = b.t > 2.2 ? Math.max(0, (2.6 - b.t) / 0.4) : Math.min(1, b.t * 8);
   ctx.fillStyle = 'rgba(245,250,255,0.95)';
@@ -937,7 +1044,7 @@ function drawEffect(e) {
       g.addColorStop(1, 'rgba(120,230,255,0.55)');
       ctx.fillStyle = g;
       ctx.fillRect(p.x - 40, p.y - 260, 80, 260);
-      ctx.font = '900 22px "Trebuchet MS", sans-serif';
+      ctx.font = '16px "Press Start 2P", monospace';
       ctx.textAlign = 'center';
       ctx.strokeStyle = '#000'; ctx.lineWidth = 4;
       ctx.strokeText('LEVEL UP!', p.x, p.y - 100 - k * 30);
@@ -961,7 +1068,7 @@ function drawEffect(e) {
       break;
     }
     case 'alert':
-      ctx.font = '900 26px "Trebuchet MS", sans-serif';
+      ctx.font = '20px "Press Start 2P", monospace';
       ctx.textAlign = 'center';
       ctx.strokeStyle = '#000'; ctx.lineWidth = 4;
       ctx.strokeText('!', e.x, e.y);
@@ -1014,30 +1121,59 @@ function weaponAngle(p, type) {
 // Weapon form is out while fighting; otherwise the nanobot floats beside you as a companion.
 const armed = (p) => !!p.act || p.attackT > 0 || p.lastAtk < 0.9;
 
+// Reduce the player's continuous state to a small set of sprite frames.
+function playerPose(p, type) {
+  const t = G.time;
+  const q = {
+    mounted: !!p.mounted,
+    hover: p.mounted ? (Math.floor(t * 4) % 2) * 2 : 0,
+    lean: p.act?.type === 'dash' ? 0.25 : 0,
+    rope: !!p.rope,
+    climb: p.rope ? (Math.sin(p.climbT * 12) > 0 ? 1 : -1) : 0,
+    air: !p.onGround && !p.rope,
+    sw: 0,
+    bob: 0,
+    w: null,
+  };
+  if (p.onGround && Math.abs(p.vx) > 30 && !p.mounted) {
+    const f = Math.floor((p.walkT * 14) / (PI / 3)) % 6;
+    q.sw = Math.round(Math.sin((f * PI) / 3) * 100) / 100;
+    q.bob = Math.round(Math.abs(Math.cos((f * PI) / 3))) * 2;
+  } else if (!q.air) q.bob = (Math.floor(t * 1.5) % 2) * 2;
+  if (armed(p)) {
+    const s = weaponAngle(p, type);
+    const a = Math.atan2(Math.sin(s.ang), Math.cos(s.ang));
+    q.w = { ang: Math.round(a / 0.2) * 0.2, ext: Math.round(s.ext / 2) * 2 };
+  }
+  q.key = [+q.mounted, q.hover, q.lean, q.rope ? q.climb : 'n', +q.air, q.sw, q.bob, q.w ? `${q.w.ang.toFixed(1)},${q.w.ext}` : '-'].join('|');
+  return q;
+}
+
 function drawPlayer(p) {
   const t = G.time;
   const bot = activeBot(p);
   const type = bot ? botType(bot) : 'blade';
   const color = bot ? botColor(bot) : '#5ad8ff';
   const stage = bot ? stageOf(bot) : 1;
-  ctx.save();
-  ctx.translate(p.x, p.y);
   if (p.dead) {
-    shadow(0, 0, 20);
-    ctx.fillStyle = '#3a3e4a';
-    roundRect(-18, -30, 36, 30, 6);
-    ctx.fill();
-    ctx.fillStyle = '#ff3a4a';
-    ctx.font = 'bold 10px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('K.O.', 0, -12);
-    ctx.restore();
+    const ko = bake('KO', [-24, -36, 48, 40], () => {
+      ctx.fillStyle = '#3a3e4a';
+      roundRect(-18, -30, 36, 30, 6);
+      ctx.fill();
+      ctx.fillStyle = '#ff3a4a';
+      ctx.fillRect(-7, -20, 14, 4);
+      ctx.fillRect(-2, -25, 4, 14);
+    });
+    blit(ko, p.x, p.y);
     return;
   }
-  if (p.invuln > 0 && !p.act && Math.floor(t * 20) % 2) ctx.globalAlpha = 0.45;
+
+  // Live (unbaked) layers: shield, sync aura, shadow, hoverboard glow.
+  ctx.save();
+  ctx.translate(p.x, p.y);
   if (p.shield > 0) {
     ctx.strokeStyle = hexA('#60f0a0', 0.5 + 0.3 * Math.sin(t * 10));
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 4;
     ctx.beginPath(); ctx.arc(0, -32, 40, 0, PI * 2); ctx.stroke();
   }
   if (p.act?.type === 'sync') {
@@ -1048,30 +1184,52 @@ function drawPlayer(p) {
     ctx.fillRect(-90, -120, 180, 180);
   }
   if (p.onGround) shadow(0, 0, 16);
-  ctx.scale(p.face, 1);
   if (p.mounted) {
-    const hover = Math.sin(t * 6) * 1.5;
     ctx.fillStyle = hexA('#40e0ff', 0.35);
     ctx.beginPath(); ctx.ellipse(0, 2, 26, 5, 0, 0, PI * 2); ctx.fill();
+    if (Math.random() < 0.6) G.parts.push({ x: p.x - p.face * 26, y: p.y - 4, vx: -p.face * 80 - p.vx * 0.3, vy: 0, life: 0.25, t: 0, color: '#40e0ff', size: 3, grav: 0 });
+  }
+  ctx.restore();
+
+  const q = playerPose(p, type);
+  const jacket = ITEMS[p.equip.body]?.color || '#44475a';
+  const head = p.equip.head || '';
+  const spr = bake(`P|${type}|${stage}|${jacket}|${head}|${q.key}`, [-76, -128, 170, 144], () => drawPlayerBody(q, type, stage, color, jacket, head));
+  if (p.invuln > 0 && !p.act && Math.floor(t * 20) % 2) ctx.globalAlpha = 0.45;
+  blit(spr, p.x, p.y, p.face);
+  ctx.globalAlpha = 1;
+
+  if (p.act?.type === 'whirl') {
+    ctx.save();
+    ctx.translate(p.x, p.y - 30);
+    ctx.strokeStyle = hexA(color, 0.8);
+    ctx.lineWidth = 4;
+    for (let i = 0; i < 3; i++) {
+      const a0 = G.time * 22 + i * 2.1;
+      ctx.beginPath(); ctx.ellipse(0, 0, 100, 40, 0, a0, a0 + 1.3); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  drawCompanion(p, type, stage, color, t);
+  nameTag(p.name, p.x, p.y + 6, '#fff', 'rgba(20,60,120,0.8)');
+}
+
+// The player at the origin, facing right, in one pose. Baked into a sprite by drawPlayer.
+function drawPlayerBody(q, type, stage, color, jacket, headId) {
+  if (q.mounted) {
     ctx.fillStyle = '#1a2030';
-    roundRect(-24, -8 + hover, 48, 7, 3);
+    roundRect(-24, -8 + q.hover, 48, 7, 3);
     ctx.fill();
     ctx.fillStyle = '#40e0ff';
-    ctx.fillRect(-20, -4 + hover, 40, 2);
+    ctx.fillRect(-20, -4 + q.hover, 40, 2);
     ctx.fillStyle = '#ff3a8a';
-    ctx.fillRect(-26, -7 + hover, 4, 5);
-    if (Math.random() < 0.6) G.parts.push({ x: p.x - p.face * 26, y: p.y - 4, vx: -p.face * 80 - p.vx * 0.3, vy: 0, life: 0.25, t: 0, color: '#40e0ff', size: 2.5, grav: 0, glow: true });
-    ctx.translate(0, -8 + hover);
+    ctx.fillRect(-26, -7 + q.hover, 4, 5);
+    ctx.translate(0, -8 + q.hover);
   }
+  ctx.rotate(q.lean);
 
-  const run = p.onGround && Math.abs(p.vx) > 30 && !p.mounted;
-  const sw = run ? Math.sin(p.walkT * 14) : 0;
-  const bob = run ? Math.abs(Math.cos(p.walkT * 14)) * 2 : Math.sin(t * 3) * 0.8;
-  const jacket = ITEMS[p.equip.body]?.color || '#44475a';
-  ctx.rotate(p.act?.type === 'dash' ? 0.25 : 0);
-
-  if (p.rope) {
-    const c = Math.sin(p.climbT * 12);
+  if (q.rope) {
+    const c = q.climb;
     ctx.strokeStyle = '#23262e'; ctx.lineWidth = 6;
     ctx.beginPath(); ctx.moveTo(-4, -22); ctx.lineTo(-5, -4 + c * 4); ctx.moveTo(4, -22); ctx.lineTo(5, -4 - c * 4); ctx.stroke();
     ctx.fillStyle = jacket;
@@ -1080,17 +1238,16 @@ function drawPlayer(p) {
     ctx.beginPath(); ctx.moveTo(-8, -44); ctx.lineTo(-7, -64 + c * 4); ctx.moveTo(8, -44); ctx.lineTo(7, -64 - c * 4); ctx.stroke();
     ctx.fillStyle = '#16121a';
     ctx.beginPath(); ctx.arc(0, -56, 11, 0, PI * 2); ctx.fill();
-    ctx.restore();
-    drawCompanion(p, type, stage, color, t);
     return;
   }
 
+  const sw = q.sw, bob = q.bob;
   // Back arm
   ctx.strokeStyle = shade(jacket, 0.7);
   ctx.lineWidth = 5;
   ctx.beginPath(); ctx.moveTo(-3, -42 + bob); ctx.lineTo(-7 - sw * 5, -26 + bob); ctx.stroke();
 
-  legs(sw, '#23262e', !p.onGround);
+  legs(sw, '#23262e', q.air);
 
   // Jacket
   ctx.fillStyle = jacket;
@@ -1107,7 +1264,7 @@ function drawPlayer(p) {
   ctx.fillStyle = color;
   ctx.fillRect(-2, -72 + bob, 3, 6);
 
-  const head = p.equip.head ? ITEMS[p.equip.head] : null;
+  const head = headId ? ITEMS[headId] : null;
   if (head) {
     ctx.fillStyle = head.color;
     if (head.look === 'cap') {
@@ -1128,13 +1285,12 @@ function drawPlayer(p) {
 
   // Front arm + weapon form
   const shX = 3, shY = -42 + bob;
-  if (armed(p)) {
-    const s = weaponAngle(p, type);
-    const hx = shX + Math.cos(s.ang) * 12 + s.ext, hy = shY + Math.sin(s.ang) * 12;
+  if (q.w) {
+    const hx = shX + Math.cos(q.w.ang) * 12 + q.w.ext, hy = shY + Math.sin(q.w.ang) * 12;
     ctx.save();
     ctx.translate(hx, hy);
-    ctx.rotate(s.ang);
-    drawWeapon(ctx, type, stage, color);
+    ctx.rotate(q.w.ang);
+    drawWeapon(ctx, type, stage, color, true);
     ctx.restore();
     ctx.strokeStyle = jacket; ctx.lineWidth = 5;
     ctx.beginPath(); ctx.moveTo(shX, shY); ctx.lineTo(hx, hy); ctx.stroke();
@@ -1144,66 +1300,86 @@ function drawPlayer(p) {
     ctx.strokeStyle = jacket; ctx.lineWidth = 5;
     ctx.beginPath(); ctx.moveTo(shX, shY); ctx.lineTo(6 + sw * 5, -26 + bob); ctx.stroke();
   }
-  ctx.restore();
-
-  if (p.act?.type === 'whirl') {
-    ctx.save();
-    ctx.translate(p.x, p.y - 30);
-    ctx.strokeStyle = hexA(color, 0.7);
-    ctx.lineWidth = 4;
-    for (let i = 0; i < 3; i++) {
-      const a0 = G.time * 22 + i * 2.1;
-      ctx.beginPath(); ctx.ellipse(0, 0, 100, 40, 0, a0, a0 + 1.3); ctx.stroke();
-    }
-    ctx.restore();
-  }
-  drawCompanion(p, type, stage, color, t);
-  nameTag(p.name, p.x, p.y + 6, '#fff', 'rgba(20,60,120,0.75)');
 }
 
 function drawCompanion(p, type, stage, color, t) {
   if (p.botX == null) return;
-  const out = !armed(p) || p.act?.type === 'sync';
-  if (!out) return;
-  ctx.save();
-  ctx.translate(p.botX, p.botY);
-  ctx.scale(p.face, 1);
-  if (p.act?.type === 'sync') ctx.scale(1.8, 1.8);
+  const sync = p.act?.type === 'sync';
+  if (armed(p) && !sync) return;
   const bot = activeBot(p);
-  drawBot(ctx, type, stage, color, t, bot ? BOTS[bot.sp].rarity : 1);
-  ctx.restore();
+  const rar = bot ? BOTS[bot.sp].rarity : 1;
+  const sc = sync ? 1.8 : 1;
+  const r = (stage >= 3 ? 26 + Math.sin(t * 4) * 2 : 18) * sc;
+  const g = ctx.createRadialGradient(p.botX, p.botY, 1, p.botX, p.botY, r);
+  g.addColorStop(0, hexA(color, 0.6));
+  g.addColorStop(1, hexA(color, 0));
+  ctx.fillStyle = g;
+  ctx.fillRect(p.botX - r, p.botY - r, r * 2, r * 2);
+  const f = Math.floor(t * 5) % 2;
+  const spr = bake(`B|${type}|${stage}|${rar}|${f}|${sc}`, [-40 * sc, -40 * sc, 80 * sc, 80 * sc], () => {
+    ctx.scale(sc, sc);
+    drawBot(ctx, type, stage, color, f ? 0.16 : 0, rar, true);
+  });
+  blit(spr, p.botX, p.botY, p.face);
 }
 
 // ---------- Demons ----------
 
+// Sprite bounds per demon type, [x0, y0, w, h] around the feet anchor (facing right).
+const MOB_BOX = {
+  imp: [-32, -52, 68, 58], wisp: [-20, -48, 40, 52], hound: [-54, -62, 108, 66],
+  specter: [-26, -76, 64, 90], brute: [-38, -90, 84, 94], sovereign: [-172, -188, 294, 196],
+};
+const MOB_GLOW = { wisp: 'rgba(255,80,220,', specter: 'rgba(110,90,255,' };
+
 function drawMob(m) {
-  ctx.save();
-  let rise = 0;
+  let rise = 0, alpha = 1;
   if (!m.alive) {
-    const k = m.deadT / (m.d.kind === 'boss' ? 2.5 : 0.6);
-    ctx.globalAlpha = Math.max(0, k);
-    rise = (1 - k) * 20;
+    const kk = m.deadT / (m.d.kind === 'boss' ? 2.5 : 0.6);
+    alpha = Math.max(0, kk);
+    rise = (1 - kk) * 20;
   }
+  // Live (unbaked) layers: shadow, auras.
+  ctx.save();
+  ctx.globalAlpha = alpha;
   ctx.translate(m.x, m.y - rise);
-  if (m.flash > 0) ctx.filter = 'brightness(2.2)';
   if (m.d.kind !== 'floater' && m.alive) shadow(0, rise, m.w * 0.45);
-  if (m.elite && m.alive) {
-    const g = ctx.createRadialGradient(0, -m.h / 2, 4, 0, -m.h / 2, m.h);
-    g.addColorStop(0, 'rgba(255,200,60,0.35)');
-    g.addColorStop(1, 'rgba(255,200,60,0)');
+  const aura = (r, y, c) => {
+    const g = ctx.createRadialGradient(0, y, 2, 0, y, r);
+    g.addColorStop(0, c + '0.55)');
+    g.addColorStop(1, c + '0)');
     ctx.fillStyle = g;
-    ctx.fillRect(-m.h, -m.h * 1.5, m.h * 2, m.h * 2);
-  }
-  ctx.scale(m.face * m.size, m.size);
-  MOB_DRAW[m.type]?.(m);
+    ctx.fillRect(-r, y - r, r * 2, r * 2);
+  };
+  if (m.elite && m.alive) aura(m.h, -m.h / 2, 'rgba(255,200,60,');
+  if (MOB_GLOW[m.type]) aura(m.type === 'wisp' ? 30 : 36, -m.h / 2, MOB_GLOW[m.type]);
+  if (m.type === 'sovereign' && ((m.st === 'lunge' && m.atk?.phase === 'wind') || m.st === 'sweep' || m.st === 'rain')) aura(130, -60, 'rgba(255,40,100,');
   ctx.restore();
+
+  const f = Math.floor(m.anim * 8) % 16;
+  const moving = Math.abs(m.vx) > 5 || m.st === 'lunge';
+  const fake = {
+    ...m, anim: f / 8, vx: moving ? 10 : 0,
+    windup: m.windup > 0 ? 1 : 0, charging: !!m.charging, casting: m.casting > 0 ? 1 : 0,
+    hurtT: m.hurtT > 0 ? 1 : 0, aggro: !!m.aggro, atk: m.atk ? { phase: m.atk.phase } : null,
+  };
+  const key = `M|${m.type}|${m.size}|${f}|${+moving}|${+fake.aggro}|${fake.windup}|${+fake.charging}|${fake.casting}|${fake.hurtT}|${m.st || ''}|${fake.atk?.phase || ''}`;
+  let spr = bake(key, MOB_BOX[m.type].map((v) => v * m.size), () => {
+    ctx.scale(m.size, m.size);
+    MOB_DRAW[m.type]?.(fake);
+  });
+  if (m.flash > 0) spr = flashOf(spr);
+  ctx.globalAlpha = alpha;
+  blit(spr, m.x, m.y - rise, m.face);
+  ctx.globalAlpha = 1;
+  if (m.type === 'wisp' && m.alive && Math.random() < 0.25) G.parts.push({ x: m.x + (Math.random() - 0.5) * 16, y: m.y - 30, vx: 0, vy: -40, life: 0.5, t: 0, color: '#ff9af0', size: 3, grav: 0 });
 
   if (m.alive && m.elite) nameTag(m.name, m.x, m.y + 4, '#ffd24a');
   if (m.alive && m.d.kind !== 'boss' && (m.showBar > 0 || m.elite)) {
     const w = Math.max(36, m.w);
     const y = m.y - m.h - 14;
-    ctx.fillStyle = 'rgba(0,0,0,0.7)';
-    ctx.fillRect(m.x - w / 2 - 1, y - 1, w + 2, 6);
+    ctx.fillStyle = 'rgba(0,0,0,0.8)';
+    ctx.fillRect(m.x - w / 2 - 2, y - 2, w + 4, 8);
     ctx.fillStyle = '#e8384f';
     ctx.fillRect(m.x - w / 2, y, w * (m.hp / m.maxHp), 4);
   }
@@ -1212,8 +1388,6 @@ function drawMob(m) {
 function eyes(x1, x2, y, color, r = 2.5) {
   ctx.save();
   ctx.fillStyle = color;
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 8;
   ctx.fillRect(x1, y, r * 1.4, r);
   if (x2 != null) ctx.fillRect(x2, y, r * 1.4, r);
   ctx.restore();
@@ -1245,12 +1419,6 @@ const MOB_DRAW = {
   },
   wisp(m) {
     const f = Math.sin(m.anim * 10) * 3;
-    const g = ctx.createRadialGradient(0, -16, 2, 0, -16, 30);
-    g.addColorStop(0, 'rgba(255,220,255,0.95)');
-    g.addColorStop(0.4, 'rgba(255,80,220,0.6)');
-    g.addColorStop(1, 'rgba(80,40,255,0)');
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(0, -16, 30, 0, PI * 2); ctx.fill();
     ctx.fillStyle = '#ff9af0';
     ctx.beginPath();
     ctx.moveTo(-12, -10);
@@ -1277,9 +1445,7 @@ const MOB_DRAW = {
     ctx.fillStyle = '#231a1c';
     ctx.beginPath(); ctx.ellipse(0, -24 + crouch, 32, 12, 0, 0, PI * 2); ctx.fill();
     ctx.strokeStyle = '#ff5a10'; ctx.lineWidth = 2;
-    ctx.shadowColor = '#ff5a10'; ctx.shadowBlur = 8;
     ctx.beginPath(); ctx.moveTo(-18, -30 + crouch); ctx.lineTo(-10, -24 + crouch); ctx.lineTo(-2, -30 + crouch); ctx.lineTo(8, -24 + crouch); ctx.stroke();
-    ctx.shadowBlur = 0;
     // fiery mane
     for (let i = 0; i < 5; i++) {
       ctx.fillStyle = i % 2 ? '#ff9a30' : '#ff4a10';
@@ -1347,7 +1513,7 @@ const MOB_DRAW = {
     const t = m.anim;
     const st = m.st;
     const wind = (st === 'lunge' && m.atk?.phase === 'wind') || st === 'sweep';
-    if (wind || st === 'rain') {
+    if (!BAKING && (wind || st === 'rain')) {
       const g = ctx.createRadialGradient(0, -60, 10, 0, -60, 130);
       g.addColorStop(0, 'rgba(255,40,100,0.4)');
       g.addColorStop(1, 'rgba(255,40,100,0)');

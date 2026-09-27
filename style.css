@@ -12,8 +12,8 @@
   --rare: #ffcc55;
   --good: #6affa8;
   --bad: #ff6a6a;
-  --ui-font: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
-  --title-font: "Orbitron", "Trebuchet MS", sans-serif;
+  --ui-font: "Pixelify Sans", "Trebuchet MS", system-ui, sans-serif;
+  --title-font: "Press Start 2P", "Courier New", monospace;
 }
 
 * { box-sizing: border-box; }
@@ -23,7 +23,8 @@ body { font-family: var(--ui-font); color: var(--text); user-select: none; }
 #stage { position: fixed; inset: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); overflow: hidden; }
 /* Fixed 960x540 design space, centered and uniformly scaled to fit the window (see fitStage in ui.js). */
 #game { position: absolute; left: 50%; top: 50%; width: 960px; height: 540px; transform-origin: center; }
-#view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; image-rendering: auto; }
+#view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+img { image-rendering: pixelated; }
 #ui { position: absolute; inset: 0; font-size: 12px; pointer-events: none; }
 #ui > * { pointer-events: auto; }
 #log, #banner { pointer-events: none !important; }
@@ -328,3 +329,40 @@ body.touch .win-head .x { padding: 2px 10px; font-size: 16px; }
 #confirm .c-card { width: 380px; background: var(--panel); border: 1px solid var(--gold); border-radius: 8px; padding: 14px 16px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7); font-size: 13px; line-height: 1.5; }
 #confirm p { margin: 0; }
 body.touch #confirm .c-card { zoom: 1.25; }
+
+/* ---------- Pixel-art UI skin ----------
+   Square corners, hard drop shadows, and heading sizes tuned for Press Start 2P (a very wide face). */
+.win, #dialog, #confirm .c-card, #mini, #mtrack, .t-card, #tooltip, .bot-slot, .bot-card, .dex-card, .mission, .quest,
+.skill, .eq, .eq-bot, .e-stats div, .slot, .cell, button:not(.tb), .bar, .bb-track, .c-track, #log .ln, .tag, .rar, kbd,
+.t-card input, .lv, .bslot, .win-head, .bexp { border-radius: 0 !important; }
+.win, #dialog, .t-card, #confirm .c-card, #mini, #tooltip { border-width: 2px; box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.55); }
+button:not(.tb) { box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5); }
+button:not(.tb):active:not(:disabled) { transform: translate(1px, 1px); box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.5); }
+.bar .fill, .bb-fill { transition: none; }
+.bar { border-width: 2px; border-color: #0a0c16; }
+.bar label, .bar span { font-family: var(--ui-font); }
+body { font-size: 13px; }
+#ui { font-size: 13px; }
+
+#mini-name { font-size: 9px; font-weight: 400; margin-bottom: 5px; }
+.bb-name { font-size: 11px; font-weight: 400; }
+.b-title { font-size: 24px; font-weight: 400; letter-spacing: 2px; text-shadow: 0 0 14px rgba(90, 224, 255, 0.7), 3px 3px 0 #000; }
+.b-sub { font-size: 14px; margin-top: 8px; }
+.win-head { font-size: 10px; font-weight: 400; padding: 7px 6px 7px 10px; }
+.char-top .big { font-size: 12px; font-weight: 400; line-height: 1.8; }
+.d-name { font-size: 11px; font-weight: 400; margin-bottom: 8px; }
+.t-logo { font-size: 58px; font-weight: 400; letter-spacing: 4px; text-shadow: 0 0 24px rgba(90, 224, 255, 0.8), 5px 5px 0 #04202e; }
+.t-logo span { text-shadow: 0 0 24px rgba(255, 58, 138, 0.9), 5px 5px 0 #3a0518; }
+.t-sub { font-size: 10px; letter-spacing: 3px; margin: 14px 0 26px; }
+#combo { width: 180px; }
+.c-num { font-size: 34px; font-weight: 400; text-shadow: 0 0 10px rgba(90, 224, 255, 0.8), 3px 3px 0 #000; }
+.c-hits { font-size: 9px; letter-spacing: 3px; margin-top: 4px; }
+.c-rank { font-size: 26px; font-weight: 400; margin-top: 4px; text-shadow: 0 0 12px currentColor, 3px 3px 0 #000; }
+.m-grade { font-size: 18px; font-weight: 400; width: 38px; }
+.r-grade { font-size: 58px; font-weight: 400; text-shadow: 0 0 20px currentColor, 4px 4px 0 #000; }
+#pause div { font-size: 28px; font-weight: 400; letter-spacing: 4px; }
+.e-title { font-size: 20px; font-weight: 400; letter-spacing: 2px; line-height: 1.5; }
+.lv { border-width: 3px; }
+.lv b { font-family: var(--title-font); font-size: 13px; font-weight: 400; margin-top: -4px; }
+.tb { font-family: var(--title-font); font-size: 9px; }
+.tb.attack { font-size: 11px; }

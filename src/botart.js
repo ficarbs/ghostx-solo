@@ -13,12 +13,15 @@ function glow(x, color, r) {
 const SHELL = ['#e8eef8', '#e8eef8', '#b8cce8', '#3a3e52'];
 
 // Companion form, centered at (0,0), roughly 26px across at stage 1.
-export function drawBot(x, type, stage, color, t = 0, rarity = 1) {
+// `flat` skips the soft glow so the drawing can be baked into a crisp pixel sprite.
+export function drawBot(x, type, stage, color, t = 0, rarity = 1, flat = false) {
   const s = 1 + (stage - 1) * 0.18;
   x.save();
   x.scale(s, s);
-  if (stage >= 3) glow(x, color, 26 + Math.sin(t * 4) * 2);
-  else glow(x, color, 18);
+  if (!flat) {
+    if (stage >= 3) glow(x, color, 26 + Math.sin(t * 4) * 2);
+    else glow(x, color, 18);
+  }
   x.lineJoin = 'round';
   x.strokeStyle = 'rgba(0,0,0,0.55)';
   x.lineWidth = 1.5;
@@ -86,11 +89,11 @@ export function drawBot(x, type, stage, color, t = 0, rarity = 1) {
 }
 
 // Weapon form held by the player. Drawn pointing along +x from the hand.
-export function drawWeapon(x, type, stage, color) {
+export function drawWeapon(x, type, stage, color, flat = false) {
   x.save();
   x.lineJoin = 'round';
   x.shadowColor = color;
-  x.shadowBlur = 6 + stage * 3;
+  x.shadowBlur = flat ? 0 : 6 + stage * 3;
   if (type === 'blade') {
     const len = 36 + stage * 5;
     x.fillStyle = color;
